@@ -17,7 +17,7 @@ from utils import *
 from graph_preprocessing import *
 
 
-def get_problem_names(instance_path, instance_file_type):
+def get_instance_names(instance_path, instance_file_type):
 
     problem_names = sorted([
         name.replace(instance_file_type, '')
@@ -29,7 +29,7 @@ def get_problem_names(instance_path, instance_file_type):
 
     return problem_names
 
-def get_solved_problems(solution_path):
+def get_solved_instance_names(solution_path):
 
     solved_probs = sorted([
         name.replace('_pool.npz', '') 
@@ -188,13 +188,13 @@ def main(prob_name: str,
         Path(data_path).mkdir(parents=True, exist_ok=True)
 
         if "train" in dt_name or 'val' in dt_name:
-            prob_names = get_solved_problems(solution_path)[:dt_sizes[dt_type]]
+            instance_names = get_solved_instance_names(solution_path)[:dt_sizes[dt_type]]
           
         else:
-            prob_names = get_problem_names(instance_path, instance_file_type)
+            instance_names = get_instance_names(instance_path, instance_file_type)
 
         already_created_data_obj_names = list(set([path_name.split("\\")[-1].replace("_data.pt", '') for path_name in glob.glob(str(data_path.joinpath("*_data.pt")))]))
-        to_create = list(set(prob_names) - set(already_created_data_obj_names))
+        to_create = list(set(instance_names) - set(already_created_data_obj_names))
    
         for instance_name in to_create:    
             task_args.append([prob_name, dt_type, instance_name, instance_file_type, instance_path, solution_path, graph_path, write_graph])
