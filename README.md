@@ -2,7 +2,7 @@
 
 Furkan Cantürk, Taha Varol, Reyhan Aydoğan, and Okan Örsan Özener
 
-Publication Page: TBA
+[Publication Page](https://www.jair.org/index.php/jair/article/view/14972)
 
 ## Reproducibility
 Download the files [here](https://drive.google.com/drive/folders/1zunn3_KcgXmiuvN3-y6Jihcr6QDKK1JC) and extract them to `data` folder under the project folder.
@@ -43,16 +43,18 @@ A commercial or academic CPLEX licence is needed to run the .lp / .mps instances
 
 ## Citation
 
+If you find this repository helpful in your publications, please consider citing our paper.
+
 ```
 @article{canturk2024,
     author = {Cantürk, Furkan and Varol, Taha and Aydoğan, Reyhan, and Özener, Okan Örsan},
     year = {2024},
-    month = {},
-    pages = {},
+    month = {6},
+    pages = {327-376},
     journal = {Journal of Artificial Intelligence Research},
-    volume = {},
+    volume = {80},
     title = {Scalable Primal Heuristics Using Graph Neural Networks for Combinatorial Optimization},
-    doi = {}
+    doi = {10.1613/jair.1.14972}
 }
 ```
 
