@@ -2,6 +2,7 @@ __pycache__/
 wandb/
 cpx_tmp/
 data/
+data_all/
 mvb_experiments/mkp/data
 mvb_experiments/mkp/result/test
 mvb_experiments/mkp/result/res_backup
