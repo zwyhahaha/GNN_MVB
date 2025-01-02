@@ -167,14 +167,13 @@ class MVB(object):
         Implement the MVB framework to solve the embedded model
 
         """
-        if self._learnerStatus != self.MVB_LEARNER_TRAINED:
-            raise RuntimeError("Learner is not trained")
-        elif self._modelStatus == self.MVB_MODEL_UNINITIALIZED:
-            raise RuntimeError("Model is not initialized")
-
-        feature = self._getFeature(self._model).reshape(-1, 1)
-
         if Xpred is None:
+            if self._learnerStatus != self.MVB_LEARNER_TRAINED:
+                raise RuntimeError("Learner is not trained")
+            if self._modelStatus == self.MVB_MODEL_UNINITIALIZED:
+                raise RuntimeError("Model is not initialized")
+
+            feature = self._getFeature(self._model).reshape(-1, 1)
             Xpred = self._predictor(self._learner, feature)
 
         (fixUpIdx, fixLowIdx) = self._getFixIdx(Xpred, self._threshold)

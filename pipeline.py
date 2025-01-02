@@ -5,7 +5,7 @@ train_dt_name = TRAIN_DT_NAMES[prob_name]
 val_dt_name = VAL_DT_NAMES[prob_name]
 target_dt_names_lst = TARGET_DT_NAMES[prob_name]
 instance_name = 'instance_1'
-target_dt_name = 'train_1000_4'
+target_dt_name = 'valid_1000_4'
 
 data_params = dict(
     random_state = [0],
@@ -76,26 +76,24 @@ probs, prediction, uncertainty, evidence, incumbent, binary_idx = get_prediction
 print(">>> Prediction:", prediction)
 print(">>> Probability:", probs)
 
-""" 
-TODO:
-Pipeline under construction
-"""
 import coptpy as cp 
 from coptpy import COPT
 
 env = cp.Envr()
 cp_model = env.createModel(instance_name)
-instance_path = 'data/instances/indset/train_1000_4/instance_1.lp'
-initcpmodel = cp_model.read(instance_path)
+instance_path = f'data/instances/indset/{target_dt_name}/{instance_name}.lp'
+cp_model.read(instance_path)
+initcpmodel = cp_model.clone()
 cp_model.solve()
 
 from mvb_experiments.MVB import *
 from mvb_experiments.mkp.result.mkpUtils import *
 
-m=4221
-n=1000
+m=cp_model.getAttr("Rows")
+n=cp_model.getAttr("Cols")
+print(m,n)
 mvbsolver = MVB(m, n)
 mvbsolver.registerModel(initcpmodel, solver="copt")
 mvbsolver.registerVars(list(range(n)))
-mvb_model = mvbsolver.getMultiVarBranch(Xpred=probs) # TODO: redefine this function
+mvb_model = mvbsolver.getMultiVarBranch(Xpred=probs[:,1])
 mvb_model.solve()

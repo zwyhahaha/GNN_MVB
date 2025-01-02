@@ -46,9 +46,8 @@ PIPELINE
 - [x] LOAD: model from trained_models/indset/train_1000_4
 - [x] PREDICT: probability (n,2) and prediction (n,)
 - [x] SOLVE: original MIP instance
-- [ ] MVB: add cut using probabilities given by gnn
-- [ ] SOLVE: mvb_model
-- [ ] COMPARE: ?
+- [x] MVB: add cut using probabilities given by gnn
+- [x] SOLVE: mvb_model
 
-1. redefine `getMultiVarBranch()` to receive external args. shape of Xpred?
-2. COPT not supported?
+1. redefine `getMultiVarBranch()` to receive external args. shape of Xpred? (n,1) probs[:,1]
+2. COPT not supported? solved
