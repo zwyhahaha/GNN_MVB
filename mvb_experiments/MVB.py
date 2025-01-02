@@ -1,5 +1,6 @@
 import numpy as np
 from gurobipy import *
+import coptpy as cp
 
 
 # import cplex
@@ -112,9 +113,10 @@ class MVB(object):
 
         if self._solver == self.MVB_SOLVER_GUROBI:
             self._vars = [self._mvbmodel.getVars()[i] for i in self._varIdx]
-        else:
-            # CPLEX does not support extration of variables directly
-            return
+        elif self._solver == self.MVB_SOLVER_COPT:
+            self._vars = [self._mvbmodel.getVars()[i] for i in self._varIdx]
+        else:   
+            raise NotImplementedError("Support not yet added")
 
         return
 
@@ -195,8 +197,7 @@ class MVB(object):
                 start = np.zeros(self._ndim)
                 start[mvbUpIdx] = 1.0
                 start[mvbLowIdx] = 0.0
-                grbmodel = self._mvbmodel  # type: Model
-                grbmodel.setAttr(GRB.Attr.Start, self._vars, start)
+                self._setWarmStart(start)
 
             print("- {0} variables are involved in the MVB within interval [{1}, {2})".format(len(mvbUpIdx) +
                                                                                               len(mvbLowIdx),
@@ -242,7 +243,7 @@ class MVB(object):
         elif self._solver == self.MVB_SOLVER_SCIP:
             return self._model.clone()
         elif self._solver == self.MVB_SOLVER_COPT:
-            return self._model.copy()
+            return self._model.clone()
         else:
             raise NotImplementedError("Support for SCIP solver is not yet added")
 
@@ -294,24 +295,59 @@ class MVB(object):
     def _addCut(self, varIdx, bound, isGeq):
 
         nCutVars = len(varIdx)
-        if isGeq:
-            self._mvbmodel.addConstr(quicksum(self._vars[varIdx[i]] for i in range(nCutVars))
-                                     >= np.ceil(bound))
+        
+        if self._solver == self.MVB_SOLVER_GUROBI:
+        
+            if isGeq:
+                self._mvbmodel.addConstr(quicksum(self._vars[varIdx[i]] for i in range(nCutVars))
+                                         >= np.ceil(bound))
+            else:
+                self._mvbmodel.addConstr(quicksum(self._vars[varIdx[i]] for i in range(nCutVars))
+                                         <= np.floor(bound))
+        elif self._solver == self.MVB_SOLVER_COPT:
+            if isGeq:
+                self._mvbmodel.addConstr(cp.quicksum(self._vars[varIdx[i]] for i in range(nCutVars))
+                                         >= np.ceil(bound))
+            else:
+                self._mvbmodel.addConstr(cp.quicksum(self._vars[varIdx[i]] for i in range(nCutVars))
+                                         <= np.floor(bound))
         else:
-            self._mvbmodel.addConstr(quicksum(self._vars[varIdx[i]] for i in range(nCutVars))
-                                     <= np.floor(bound))
+            raise NotImplementedError("Support not added ")
+                
         return
 
     def _fixVars(self, varIdx, isUpper):
 
         nFixVars = len(varIdx)
-        if isUpper:
-            self._mvbmodel.addConstr(quicksum(self._vars[varIdx[i]] for i in range(nFixVars))
-                                     >= nFixVars)
+        if self._solver == self.MVB_SOLVER_GUROBI:
+            if isUpper:
+                self._mvbmodel.addConstr(quicksum(self._vars[varIdx[i]] for i in range(nFixVars))
+                                         >= nFixVars)
+            else:
+                self._mvbmodel.addConstr(quicksum(self._vars[varIdx[i]] for i in range(nFixVars))
+                                         <= 0)
+        elif self._solver == self.MVB_SOLVER_COPT:
+            if isUpper:
+                self._mvbmodel.addConstr(cp.quicksum(self._vars[varIdx[i]] for i in range(nFixVars))
+                                         >= nFixVars)
+            else:
+                self._mvbmodel.addConstr(cp.quicksum(self._vars[varIdx[i]] for i in range(nFixVars))
+                                         <= 0)
         else:
-            self._mvbmodel.addConstr(quicksum(self._vars[varIdx[i]] for i in range(nFixVars))
-                                     <= 0)
+            raise NotImplementedError("Support not added ")
+        
         return
+    
+    def _setWarmStart(self, start):
+        
+        if self._solver == self.MVB_SOLVER_GUROBI:
+            self._mvbmodel.setAttr(GRB.Attr.Start, self._vars, start)
+        elif self._solver == self.MVB_SOLVER_COPT:
+            self._mvbmodel.setMipStart(self._vars, start)
+        else:
+            raise NotImplementedError("Support not added ")
+        
+        pass
 
     def _registerCplexModel(self, cplexModel):
 
