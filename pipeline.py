@@ -1,4 +1,5 @@
 from ml_augmented_opt import *
+from utils import get_trained_model_config
 from mvb_experiments.MVB import *
 from mvb_experiments.mkp.result.mkpUtils import *
 from gurobipy import *
@@ -10,62 +11,7 @@ TMVBWarmarray = [0, 0]
 TOriginalArray = [0, 0, 0, 0]
 
 def get_config(prob_name):
-    data_params = dict(
-        random_state = [0],
-        train_size = [1000],
-        val_size = [200],
-        test_size = [100],
-        transfer_size = [100],
-        prob_name = [prob_name]
-    )
-
-    model_hparams = dict(
-        network_name = ['EC+V', 'EC', 'EC+E'],
-        hidden = [32],
-        num_layers = [8],
-        dropout = [0.1],
-        aggr = ['comb'],
-        activation=['relu'],
-        norm = ['graph'],
-        binary_pred = [False],
-        prenorm = [True],
-        abc_norm = [True]
-    )
-
-    train_hparams = dict(
-        batch_size = [8],
-        num_epochs = [24],
-        lr = [1e-4],
-        weight_decay = [0.0],
-        bias_threshold = [0.5],
-        pred_loss_type = ['edl_digamma', 'bce'],
-        edl_lambda = [6.0, None],
-        evidence_func = ['softplus'],
-        scheduler_step_size = [None],
-        gamma = [None],
-        scheduler_type = ['cycle']
-    )
-
-    #factors = ['network_name', 'strategy', 'abc_norm', 'prenorm']
-
-    param_grid = ParameterGrid({**model_hparams, **train_hparams, **data_params})
-
-    model_configs = []
-
-    for config in param_grid:
-
-        if config['pred_loss_type'] == 'bce' and not config['edl_lambda'] is None:
-            continue 
-        if not config['pred_loss_type'] == 'bce' and config['edl_lambda'] is None:
-            continue 
-        if config['num_layers'] == 8 and config['hidden'] == 64:
-            continue
-        if config['num_layers'] == 4 and config['hidden'] == 32:
-            continue
-
-        model_configs.append(config)
-        
-    config = model_configs[0]
+    config = get_trained_model_config(prob_name, 0)
     return config
 
 def get_instance_names(prob_name, target_dt_name):
@@ -254,7 +200,8 @@ args = parser.parse_args()
 solver = args.solver
 prob_name = args.prob_name
 config = get_config(prob_name)
-target_dt_names_lst = TARGET_DT_NAMES[prob_name]
+# target_dt_names_lst = TARGET_DT_NAMES[prob_name]
+target_dt_names_lst = [VAL_DT_NAMES[prob_name]]
 experiment_name = f"{solver}_fixthresh_{args.fixthresh}_psucceed_{args.psucceed}_gap_{args.gap}_maxtime_{args.maxtime}"
 
 for target_dt_name in target_dt_names_lst:

@@ -214,7 +214,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--prob_name", type=str, default = 'indset', choices=PROB_NAMES)
-    parser.add_argument("--dt_types", type=lambda arg: arg.split("+"), nargs='?', default = 'target', help='Values separated by "+"')
+    parser.add_argument("--dt_types", type=lambda arg: arg.split("+"), nargs='?', default = 'train+val', help='Values separated by "+"')
     parser.add_argument("--n_threads", type=int, default=cpu_count())
     args = parser.parse_args()
 
