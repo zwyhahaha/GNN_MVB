@@ -141,7 +141,7 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
         mvb_model.setParam("MIPGap", 0.0)
         TOriginalArray[0] = 0
         TOriginalArray[1] = 0
-        TOriginalArray[2] = originalObjVal
+        TOriginalArray[2] = min(originalObjVal, originalObjVal_warm)
         TOriginalArray[3] = 0
         mvb_model.optimize(whenIsMVBObjFound)
         mvb_time = mvb_model.getAttr("RunTime")
@@ -158,6 +158,8 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
 
         results = {
             'instance_name': instance_name,
+            'rows': m,
+            'cols': n,
             'ori_time': ori_time,
             'ori_warm_time': ori_warm_time,
             'mvb_time': mvb_time,

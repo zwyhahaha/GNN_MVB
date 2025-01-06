@@ -8,3 +8,4 @@ mvb_experiments/mkp/result/test
 mvb_experiments/mkp/result/res_backup
 mvb_experiments/mkp/result/__pycache__
 results/
+run.sh
