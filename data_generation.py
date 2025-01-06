@@ -213,8 +213,8 @@ if __name__ == '__main__':
     PROB_NAMES = list(TRAIN_DT_NAMES.keys())
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--prob_name", type=str, default = 'setcover', choices=PROB_NAMES)
-    parser.add_argument("--dt_types", type=lambda arg: arg.split("+"), nargs='?', default = 'train+val', help='Values separated by "+"')
+    parser.add_argument("--prob_name", type=str, default = 'indset', choices=PROB_NAMES)
+    parser.add_argument("--dt_types", type=lambda arg: arg.split("+"), nargs='?', default = 'target', help='Values separated by "+"')
     parser.add_argument("--n_threads", type=int, default=cpu_count())
     args = parser.parse_args()
 
@@ -228,6 +228,6 @@ if __name__ == '__main__':
     if 'val' in args.dt_types:
         dt_names.append(VAL_DT_NAMES[prob_name])
     if 'target' in args.dt_types:
-        dt_names + TARGET_DT_NAMES[prob_name]
+        dt_names = TARGET_DT_NAMES[prob_name]
 
     main(prob_name, dt_names, dt_sizes, write_graph=False, n_threads=cpu_count())
