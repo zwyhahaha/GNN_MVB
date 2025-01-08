@@ -5,6 +5,7 @@ from mvb_experiments.mkp.result.mkpUtils import *
 from gurobipy import *
 import coptpy as cp 
 from coptpy import COPT
+import numpy as np
 
 TMVBarray = [0, 0]
 TMVBWarmarray = [0, 0]
@@ -40,7 +41,18 @@ def get_instance_path(prob_name, target_dt_name, instance_name):
     instance_path = f'data/instances/{prob_name}/{target_dt_name}/{instance_name}.lp'
     return instance_path 
 
-def whenIsBestObjFound(model, where, time=TMVBarray):
+def whenIsBestMinObjFound(model, where, time=TMVBarray):
+    if where == GRB.Callback.MIPSOL:
+        objbst = model.cbGet(GRB.Callback.MIPSOL_OBJBST)
+        # objnow = model.cbGet(GRB.Callback.MIPSOL_OBJ)
+
+        if objbst < time[1]:
+            bestTime = model.cbGet(GRB.Callback.RUNTIME)
+            # print("Solution found at %3g" % bestTime)
+            time[0] = bestTime
+            time[1] = objbst
+
+def whenIsBestMaxObjFound(model, where, time=TMVBarray):
     if where == GRB.Callback.MIPSOL:
         objbst = model.cbGet(GRB.Callback.MIPSOL_OBJBST)
         # objnow = model.cbGet(GRB.Callback.MIPSOL_OBJ)
@@ -51,7 +63,18 @@ def whenIsBestObjFound(model, where, time=TMVBarray):
             time[0] = bestTime
             time[1] = objbst
 
-def whenIsBestWarmObjFound(model, where, time=TMVBWarmarray):
+def whenIsBestMinWarmObjFound(model, where, time=TMVBWarmarray):
+    if where == GRB.Callback.MIPSOL:
+        objbst = model.cbGet(GRB.Callback.MIPSOL_OBJBST)
+        # objnow = model.cbGet(GRB.Callback.MIPSOL_OBJ)
+
+        if objbst < time[1]:
+            bestTime = model.cbGet(GRB.Callback.RUNTIME)
+            # print("Solution found at %3g" % bestTime)
+            time[0] = bestTime
+            time[1] = objbst
+
+def whenIsBestMaxWarmObjFound(model, where, time=TMVBWarmarray):
     if where == GRB.Callback.MIPSOL:
         objbst = model.cbGet(GRB.Callback.MIPSOL_OBJBST)
         # objnow = model.cbGet(GRB.Callback.MIPSOL_OBJ)
@@ -62,7 +85,18 @@ def whenIsBestWarmObjFound(model, where, time=TMVBWarmarray):
             time[0] = bestTime
             time[1] = objbst
 
-def whenIsMVBObjFound(model, where, time=TOriginalArray):
+def whenIsMVBMinObjFound(model, where, time=TOriginalArray):
+    if where == GRB.Callback.MIPSOL:
+        objbst = model.cbGet(GRB.Callback.MIPSOL_OBJBST)
+        objnow = model.cbGet(GRB.Callback.MIPSOL_OBJ)
+        objbst = min(objbst, objnow)
+
+        if objbst <= time[2]:
+            time[1] = 1
+            time[3] = model.cbGet(GRB.Callback.RUNTIME)
+            model.terminate()
+
+def whenIsMVBMaxObjFound(model, where, time=TOriginalArray):
     if where == GRB.Callback.MIPSOL:
         objbst = model.cbGet(GRB.Callback.MIPSOL_OBJBST)
         objnow = model.cbGet(GRB.Callback.MIPSOL_OBJ)
@@ -73,8 +107,11 @@ def whenIsMVBObjFound(model, where, time=TOriginalArray):
             time[3] = model.cbGet(GRB.Callback.RUNTIME)
             model.terminate()
 
-def computeObjLoss(mvbObj, originalObj):
-    return (originalObj - mvbObj) / originalObj * 100
+def computeObjLoss(mvbObj, originalObj, ModelSense = -1):
+    if ModelSense == -1:
+        return (originalObj - mvbObj) / originalObj * 100
+    elif ModelSense == 1:
+        return (mvbObj - originalObj) / originalObj * 100
 
 def mvb_experiment(instance_path, solver, probs, prediction, args):
     instance_name = instance_path.split('/')[-1].split('.')[0]
@@ -108,12 +145,18 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
     elif solver == 'gurobi':
         initgrbmodel = read(instance_path)
         initgrbmodel.setParam("TimeLimit", args.maxtime)
+        initgrbmodel.setParam("Heuristics", args.heuristics)
+        ModelSense = initgrbmodel.getAttr("ModelSense") # 1: min, -1: max
 
         grbmodel = initgrbmodel.copy()
         grbmodel.setParam("MIPGap", args.gap)
         TMVBarray[0] = 0
-        TMVBarray[1] = 0
-        grbmodel.optimize(whenIsBestObjFound)
+        if ModelSense == 1:
+            TMVBarray[1] = np.Inf # obj
+            grbmodel.optimize(whenIsBestMinObjFound)
+        elif ModelSense == -1:
+            TMVBarray[1] = -np.Inf # obj
+            grbmodel.optimize(whenIsBestMaxObjFound)
         originalgap = grbmodel.getAttr("MIPGap")
         ori_time = grbmodel.getAttr("RunTime")
         originalObjVal = grbmodel.getAttr("ObjVal")
@@ -123,8 +166,12 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
         grbmodel.setParam("MIPGap", args.gap)
         grbmodel.setAttr(GRB.Attr.Start, grbmodel.getVars(), prediction)
         TMVBWarmarray[0] = 0
-        TMVBWarmarray[1] = 0
-        grbmodel.optimize(whenIsBestWarmObjFound)
+        if ModelSense == 1:
+            TMVBWarmarray[1] = np.Inf # obj
+            grbmodel.optimize(whenIsBestMinWarmObjFound)
+        elif ModelSense == -1:
+            TMVBWarmarray[1] = -np.Inf # obj
+            grbmodel.optimize(whenIsBestMaxWarmObjFound)
         originalgap_warm = grbmodel.getAttr("MIPGap")
         ori_warm_time = grbmodel.getAttr("RunTime")
         originalObjVal_warm = grbmodel.getAttr("ObjVal")
@@ -141,9 +188,13 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
         mvb_model.setParam("MIPGap", 0.0)
         TOriginalArray[0] = 0
         TOriginalArray[1] = 0
-        TOriginalArray[2] = min(originalObjVal, originalObjVal_warm)
         TOriginalArray[3] = 0
-        mvb_model.optimize(whenIsMVBObjFound)
+        if ModelSense == 1:
+            TOriginalArray[2] = max(originalObjVal, originalObjVal_warm)
+            mvb_model.optimize(whenIsMVBMinObjFound)
+        elif ModelSense == -1:
+            TOriginalArray[2] = min(originalObjVal, originalObjVal_warm)
+            mvb_model.optimize(whenIsMVBMaxObjFound)
         mvb_time = mvb_model.getAttr("RunTime")
         mvbObjVal = mvb_model.getAttr("ObjVal")
         if TOriginalArray[1]:
@@ -151,8 +202,8 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
         else:
             TimeDominance = args.maxtime
 
-        objLoss = computeObjLoss(mvbObjVal, originalObjVal)
-        objLoss_warm = computeObjLoss(mvbObjVal, originalObjVal_warm)
+        objLoss = computeObjLoss(mvbObjVal, originalObjVal, ModelSense)
+        objLoss_warm = computeObjLoss(mvbObjVal, originalObjVal_warm, ModelSense)
 
         print(ori_best_time, ori_warm_best_time, TimeDominance, objLoss, objLoss_warm)
 
@@ -193,8 +244,9 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--maxtime", type=float, default=3600.0)
 parser.add_argument("--fixthresh", type=float, default=1.1)
-parser.add_argument("--psucceed", type=float, default=0.9)
+parser.add_argument("--psucceed", type=float, default=0.95)
 parser.add_argument("--gap", type=float, default=0.01)
+parser.add_argument("--heuristics", type=float, default=0.1)
 parser.add_argument("--solver", type=str, default='gurobi')
 parser.add_argument("--prob_name", type=str, default='indset')
 
@@ -204,15 +256,19 @@ prob_name = args.prob_name
 config = get_config(prob_name)
 # target_dt_names_lst = TARGET_DT_NAMES[prob_name]
 target_dt_names_lst = [VAL_DT_NAMES[prob_name]]
-experiment_name = f"{solver}_fixthresh_{args.fixthresh}_psucceed_{args.psucceed}_gap_{args.gap}_maxtime_{args.maxtime}"
+experiment_name = f"{solver}_heuristics_{args.heuristics}_fixthresh_{args.fixthresh}_psucceed_{args.psucceed}_gap_{args.gap}_maxtime_{args.maxtime}"
 
 for target_dt_name in target_dt_names_lst:
     instance_names = get_instance_names(prob_name, target_dt_name)
     for instance_name in instance_names:
-        data = get_data(prob_name, target_dt_name, instance_name)
-        model, model_name = get_model(config, data)
-        # experiment_name = model_name
-        probs, prediction = get_probs(config, model, data)
-        instance_path = get_instance_path(prob_name, target_dt_name, instance_name)
-        results = mvb_experiment(instance_path, solver, probs, prediction, args)
-        log_results(prob_name, target_dt_name, instance_name, experiment_name, results)
+        try:
+            data = get_data(prob_name, target_dt_name, instance_name)
+            model, model_name = get_model(config, data)
+            # experiment_name = model_name
+            probs, prediction = get_probs(config, model, data)
+            instance_path = get_instance_path(prob_name, target_dt_name, instance_name)
+            results = mvb_experiment(instance_path, solver, probs, prediction, args)
+            log_results(prob_name, target_dt_name, instance_name, experiment_name, results)
+        except Exception as e:
+            print(f"Error in {instance_name}: {e}")
+            continue

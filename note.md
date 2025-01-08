@@ -69,3 +69,14 @@ PIPELINE
 - [x] gurobi callback: copy model and use global vars, and use objnow and objbst for comparison
 - [x] build experiment env
 - [x] generate target dataset
+
+## 0108 record
+DATASET
+1. `indset`: independent set
+2. `setcover`: set covering
+3. `cauctions`: combinatorial auctions
+4. `fcmnf`: Fixed-Charge Multi-Commodity Network Flow
+5. `gisp`: generalized independent set problem
+
+- [x] fix min problem
+- [x] set param Heuristics as 1
