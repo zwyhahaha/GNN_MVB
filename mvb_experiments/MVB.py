@@ -2,10 +2,6 @@ import numpy as np
 from gurobipy import *
 import coptpy as cp
 
-
-# import cplex
-
-
 class MVB(object):
     """
     A class for multi-variable branching framework
@@ -160,8 +156,14 @@ class MVB(object):
         self._learnerStatus = self.MVB_LEARNER_TRAINED
 
         return
+    
+    def getPSuccess(self, Xpred, ratio=0.1):
+        sorted_indices = np.argsort(Xpred)
+        index_at_ratio = sorted_indices[int(len(Xpred) * ratio)]
+        pSuccess = Xpred[index_at_ratio]
+        return pSuccess
 
-    def getMultiVarBranch(self, warm=False, Xpred=None):
+    def getMultiVarBranch(self, warm=False, Xpred=None, upCut=True, lowCut=True):
 
         """
         Implement the MVB framework to solve the embedded model
@@ -188,8 +190,10 @@ class MVB(object):
             (ksiUp, ksiLow) = self._getHoeffdingBound(mvbUpProb, mvbLowProb, self._pSuccess[i])
 
             # Run MVB
-            self._addCut(mvbUpIdx, ksiUp, isGeq=True)
-            self._addCut(mvbLowIdx, ksiLow, isGeq=False)
+            if upCut:
+                self._addCut(mvbUpIdx, ksiUp, isGeq=True)
+            if lowCut:
+                self._addCut(mvbLowIdx, ksiLow, isGeq=False)
 
             # Warm-start
             if i == 0 and warm:
@@ -206,6 +210,61 @@ class MVB(object):
         print("MVB model is generated")
 
         return self._mvbmodel
+    
+    def generate_subproblem(self, model: Model, up_id, low_id, k_up, k_low, up=True, low=True, obj = None, isGeq=True):
+
+        if self._solver == self.MVB_SOLVER_GUROBI:
+            vars = model.getVars()
+
+            if up:
+                model.addConstr(quicksum(vars[up_id[i]] for i in range(len(up_id)))
+                                >= np.ceil(k_up) + 1, name="mvb_up")
+            else:
+                model.addConstr(quicksum(vars[up_id[i]] for i in range(len(up_id)))
+                                <= np.ceil(k_up), name="mvb_up_comp")
+            if low:
+                model.addConstr(quicksum(vars[low_id[i]] for i in range(len(low_id)))
+                                <= np.floor(k_low) - 1, name="mvb_low")
+            else:
+                model.addConstr(quicksum(vars[low_id[i]] for i in range(len(low_id)))
+                                >= np.floor(k_low), name="mvb_low_comp")
+                
+            if obj is not None:
+                if isGeq:
+                    model.addConstr(model.getObjective() >= obj)
+                else:
+                    model.addConstr(model.getObjective() <= obj)
+
+        return model
+
+    
+    def get_model_list(self, Xpred=None, obj = None, isGeq=True):
+        if Xpred is None:
+            if self._learnerStatus != self.MVB_LEARNER_TRAINED:
+                raise RuntimeError("Learner is not trained")
+            if self._modelStatus == self.MVB_MODEL_UNINITIALIZED:
+                raise RuntimeError("Model is not initialized")
+
+            feature = self._getFeature(self._model).reshape(-1, 1)
+            Xpred = self._predictor(self._learner, feature)
+
+        assert self._nRegion == 1 # ensure total possible model number is 4
+
+        for i in range(self._nRegion):
+            (mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb) = self._getMVBIdx(Xpred, self._tmvb[i + 1], self._tmvb[i])
+            (ksiUp, ksiLow) = self._getHoeffdingBound(mvbUpProb, mvbLowProb, self._pSuccess[i])
+
+            model_cup_low = self._mvbmodel.copy()
+            model_up_clow = self._mvbmodel.copy()
+            model_cup_clow = self._mvbmodel.copy()
+            model_list = [self.generate_subproblem(model_cup_low, mvbUpIdx, mvbLowIdx,
+                                            ksiUp, ksiLow, up=False, low=True, obj = obj, isGeq=isGeq),
+                            self.generate_subproblem(model_up_clow, mvbUpIdx, mvbLowIdx,
+                                                ksiUp, ksiLow, up=True, low=False, obj = obj, isGeq=isGeq),
+                            self.generate_subproblem(model_cup_clow, mvbUpIdx, mvbLowIdx,
+                                                ksiUp, ksiLow, up=False, low=False, obj = obj, isGeq=isGeq)]
+
+        return model_list
 
     def getLearner(self):
 
@@ -284,9 +343,9 @@ class MVB(object):
         nUpVars = len(mvbUpProb)
         nLowVars = len(mvbLowProb)
         pFail = 1 - pSuccess
-        ksiUp = np.sum(mvbUpProb) - np.sqrt(nUpVars * np.log(1 / np.maximum(pFail, 1e-03)) / 2)
+        ksiUp = np.sum(mvbUpProb) - np.sqrt(nUpVars * np.log(1 / np.maximum(pFail, 1e-20)) / 2)
         ksiUp = np.minimum(ksiUp, nUpVars)
-        ksiLow = np.sum(mvbLowProb) + np.sqrt(nLowVars * np.log(1 / np.maximum(pFail, 1e-03)) / 2)
+        ksiLow = np.sum(mvbLowProb) + np.sqrt(nLowVars * np.log(1 / np.maximum(pFail, 1e-20)) / 2)
         ksiLow = np.maximum(ksiLow, 0)
 
         return ksiUp, ksiLow
@@ -314,7 +373,7 @@ class MVB(object):
             raise NotImplementedError("Support not added ")
                 
         return
-
+    
     def _fixVars(self, varIdx, isUpper):
 
         nFixVars = len(varIdx)

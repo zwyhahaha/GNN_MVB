@@ -187,11 +187,11 @@ def main(prob_name: str,
         Path(graph_path).mkdir(parents=True, exist_ok=True)
         Path(data_path).mkdir(parents=True, exist_ok=True)
 
-        if "train" in dt_name or 'val' in dt_name:
-            instance_names = get_solved_instance_names(solution_path)[:dt_sizes[dt_type]]
+        # if "train" in dt_name or 'val' in dt_name:
+        #     instance_names = get_solved_instance_names(solution_path)[:dt_sizes[dt_type]]
           
-        else:
-            instance_names = get_instance_names(instance_path, instance_file_type)
+        # else:
+        instance_names = get_instance_names(instance_path, instance_file_type)
 
         already_created_data_obj_names = list(set([path_name.split("\\")[-1].replace("_data.pt", '') for path_name in glob.glob(str(data_path.joinpath("*_data.pt")))]))
         to_create = list(set(instance_names) - set(already_created_data_obj_names))
@@ -213,8 +213,8 @@ if __name__ == '__main__':
     PROB_NAMES = list(TRAIN_DT_NAMES.keys())
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--prob_name", type=str, default = 'indset', choices=PROB_NAMES)
-    parser.add_argument("--dt_types", type=lambda arg: arg.split("+"), nargs='?', default = 'train+val', help='Values separated by "+"')
+    parser.add_argument("--prob_name", type=str, default = 'cauctions', choices=PROB_NAMES)
+    parser.add_argument("--dt_types", type=lambda arg: arg.split("+"), nargs='?', default = 'val', help='Values separated by "+"')
     parser.add_argument("--n_threads", type=int, default=cpu_count())
     args = parser.parse_args()
 

@@ -72,11 +72,17 @@ PIPELINE
 
 ## 0108 record
 DATASET
-1. `indset`: independent set
-2. `setcover`: set covering
-3. `cauctions`: combinatorial auctions
-4. `fcmnf`: Fixed-Charge Multi-Commodity Network Flow
-5. `gisp`: generalized independent set problem
+1. `indset`: independent set, decide whether to include a node, such that an edge is not included, and maximize the cardinality
+2. `setcover`: set covering, decide whether to include a set, such that the union is the universe, and minimize the number of sets
+3. `cauctions`: combinatorial auctions, decide whether to allocate a subset of product to a buyer, and maximize the value
+4. `fcmnf`: Fixed-Charge Multi-Commodity Network Flow: decide the flow, minimize the total cost with fixed charge
+5. `gisp`: generalized independent set problem: divide into removable and unremovable edges. max the revenue - remove cost
 
 - [x] fix min problem
 - [x] set param Heuristics as 1
+
+## 0109 record
+- [x] run cauctions dataset: unbalanced upper and lower bound, and a hidden threshold in code? sort
+- [ ] implement logistic regression model, how to generate the train dataset for logreg? perturb fcmnf
+- [x] rerun setcover by removing the upper cut
+- [x] solve four subproblems
