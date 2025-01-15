@@ -86,3 +86,7 @@ DATASET
 - [ ] implement logistic regression model, how to generate the train dataset for logreg? perturb fcmnf
 - [x] rerun setcover by removing the upper cut
 - [x] solve four subproblems
+
+## 0115 record
+- [x] fix a bug in braching rule. >= a vs. <= (a-1)
+- [x] use different probability for up and low cut

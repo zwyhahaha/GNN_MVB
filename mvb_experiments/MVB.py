@@ -39,7 +39,8 @@ class MVB(object):
         self._predictor = None
         self._threshold = 1.0
         self._tmvb = [self._threshold, 0.9]
-        self._pSuccess = [0.95]
+        self._pSuccessLow = [0.95]
+        self._pSuccessUp  = [0.95]
         self._nRegion = len(self._tmvb) - 1
 
         return
@@ -157,11 +158,11 @@ class MVB(object):
 
         return
     
-    def getPSuccess(self, Xpred, ratio=0.1):
-        sorted_indices = np.argsort(Xpred)
-        index_at_ratio = sorted_indices[int(len(Xpred) * ratio)]
-        pSuccess = Xpred[index_at_ratio]
-        return pSuccess
+    # def getPSuccess(self, Xpred, ratio=0.1):
+    #     sorted_indices = np.argsort(Xpred)
+    #     index_at_ratio = sorted_indices[int(len(Xpred) * ratio)]
+    #     pSuccess = Xpred[index_at_ratio]
+    #     return pSuccess
 
     def getMultiVarBranch(self, warm=False, Xpred=None, upCut=True, lowCut=True):
 
@@ -187,7 +188,7 @@ class MVB(object):
 
         for i in range(self._nRegion):
             (mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb) = self._getMVBIdx(Xpred, self._tmvb[i + 1], self._tmvb[i])
-            (ksiUp, ksiLow) = self._getHoeffdingBound(mvbUpProb, mvbLowProb, self._pSuccess[i])
+            (ksiUp, ksiLow) = self._getHoeffdingBound(mvbUpProb, mvbLowProb, self._pSuccessLow[i], self._pSuccessUp[i])
 
             # Run MVB
             if upCut:
@@ -211,34 +212,36 @@ class MVB(object):
 
         return self._mvbmodel
     
-    def generate_subproblem(self, model: Model, up_id, low_id, k_up, k_low, up=True, low=True, obj = None, isGeq=True):
+    def generate_subproblem(self, model: Model, up_id, low_id, k_up, k_low, up=True, low=True, obj = None, isGeq=True, upCut=True, lowCut=True):
 
         if self._solver == self.MVB_SOLVER_GUROBI:
             vars = model.getVars()
 
-            if up:
-                model.addConstr(quicksum(vars[up_id[i]] for i in range(len(up_id)))
-                                >= np.ceil(k_up) + 1, name="mvb_up")
-            else:
-                model.addConstr(quicksum(vars[up_id[i]] for i in range(len(up_id)))
-                                <= np.ceil(k_up), name="mvb_up_comp")
-            if low:
-                model.addConstr(quicksum(vars[low_id[i]] for i in range(len(low_id)))
-                                <= np.floor(k_low) - 1, name="mvb_low")
-            else:
-                model.addConstr(quicksum(vars[low_id[i]] for i in range(len(low_id)))
-                                >= np.floor(k_low), name="mvb_low_comp")
+            if upCut:
+                if up:
+                    model.addConstr(quicksum(vars[up_id[i]] for i in range(len(up_id)))
+                                    >= np.ceil(k_up), name="mvb_up")
+                else:
+                    model.addConstr(quicksum(vars[up_id[i]] for i in range(len(up_id)))
+                                    <= np.ceil(k_up)-1, name="mvb_up_comp")
+            if lowCut:
+                if low:
+                    model.addConstr(quicksum(vars[low_id[i]] for i in range(len(low_id)))
+                                    <= np.floor(k_low), name="mvb_low")
+                else:
+                    model.addConstr(quicksum(vars[low_id[i]] for i in range(len(low_id)))
+                                    >= np.floor(k_low)+1, name="mvb_low_comp")
                 
             if obj is not None:
                 if isGeq:
-                    model.addConstr(model.getObjective() >= obj)
+                    model.addConstr(model.getObjective() >= obj + abs(obj)*0.01)
                 else:
-                    model.addConstr(model.getObjective() <= obj)
+                    model.addConstr(model.getObjective() <= obj - abs(obj)*0.0)
 
         return model
 
     
-    def get_model_list(self, Xpred=None, obj = None, isGeq=True):
+    def get_model_list(self, Xpred=None, obj = None, isGeq=True, upCut=True, lowCut=True):
         if Xpred is None:
             if self._learnerStatus != self.MVB_LEARNER_TRAINED:
                 raise RuntimeError("Learner is not trained")
@@ -252,17 +255,26 @@ class MVB(object):
 
         for i in range(self._nRegion):
             (mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb) = self._getMVBIdx(Xpred, self._tmvb[i + 1], self._tmvb[i])
-            (ksiUp, ksiLow) = self._getHoeffdingBound(mvbUpProb, mvbLowProb, self._pSuccess[i])
+            (ksiUp, ksiLow) = self._getHoeffdingBound(mvbUpProb, mvbLowProb, self._pSuccessLow[i], self._pSuccessUp[i])
 
-            model_cup_low = self._mvbmodel.copy()
-            model_up_clow = self._mvbmodel.copy()
-            model_cup_clow = self._mvbmodel.copy()
-            model_list = [self.generate_subproblem(model_cup_low, mvbUpIdx, mvbLowIdx,
-                                            ksiUp, ksiLow, up=False, low=True, obj = obj, isGeq=isGeq),
-                            self.generate_subproblem(model_up_clow, mvbUpIdx, mvbLowIdx,
-                                                ksiUp, ksiLow, up=True, low=False, obj = obj, isGeq=isGeq),
-                            self.generate_subproblem(model_cup_clow, mvbUpIdx, mvbLowIdx,
-                                                ksiUp, ksiLow, up=False, low=False, obj = obj, isGeq=isGeq)]
+            if upCut and lowCut:
+                model_cup_low = self._mvbmodel.copy()
+                model_up_clow = self._mvbmodel.copy()
+                model_cup_clow = self._mvbmodel.copy()
+                model_list = [self.generate_subproblem(model_cup_low, mvbUpIdx, mvbLowIdx,
+                                                ksiUp, ksiLow, up=False, low=True, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut),
+                                self.generate_subproblem(model_up_clow, mvbUpIdx, mvbLowIdx,
+                                                    ksiUp, ksiLow, up=True, low=False, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut),
+                                self.generate_subproblem(model_cup_clow, mvbUpIdx, mvbLowIdx,
+                                                    ksiUp, ksiLow, up=False, low=False, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut)]
+            elif not upCut and not lowCut:
+                model_list = []
+            elif upCut:
+                model_list = [self.generate_subproblem(self._mvbmodel.copy(), mvbUpIdx, mvbLowIdx,
+                                ksiUp, ksiLow, up=False, low=True, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut)]
+            elif lowCut:
+                model_list = [self.generate_subproblem(self._mvbmodel.copy(), mvbUpIdx, mvbLowIdx,
+                                ksiUp, ksiLow, up=True, low=False, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut)]
 
         return model_list
 
@@ -273,12 +285,13 @@ class MVB(object):
 
         return self._learner
 
-    def setParam(self, threshold, tmvb, pSuccess):
+    def setParam(self, threshold, tmvb, pSuccessLow, pSuccessUp):
 
         # Recall that tmvb = [threshold, t1, t2, ..., tn]
         nRegion = len(tmvb) - 1
         assert (threshold == tmvb[0])
-        assert (nRegion == len(pSuccess))
+        assert (nRegion == len(pSuccessLow))
+        assert (nRegion == len(pSuccessUp))
 
         for i in range(nRegion - 1):
             if tmvb[i] < tmvb[i + 1]:
@@ -286,7 +299,8 @@ class MVB(object):
 
         self._threshold = threshold
         self._tmvb = tmvb
-        self._pSuccess = pSuccess
+        self._pSuccessLow = pSuccessLow
+        self._pSuccessUp = pSuccessUp
         self._nRegion = nRegion
 
         return
@@ -332,7 +346,7 @@ class MVB(object):
         return mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb
 
     @staticmethod
-    def _getHoeffdingBound(mvbUpProb, mvbLowProb, pSuccess):
+    def _getHoeffdingBound(mvbUpProb, mvbLowProb, pSuccessLow, pSuccessUp):
 
         """
         Compute the tail bound based on Hoeffding's inequality
@@ -342,10 +356,11 @@ class MVB(object):
         mvbLowProb = mvbLowProb.reshape(-1)
         nUpVars = len(mvbUpProb)
         nLowVars = len(mvbLowProb)
-        pFail = 1 - pSuccess
-        ksiUp = np.sum(mvbUpProb) - np.sqrt(nUpVars * np.log(1 / np.maximum(pFail, 1e-20)) / 2)
+        pFailLow = 1 - pSuccessLow
+        pFailUp  = 1 - pSuccessUp
+        ksiUp = np.sum(mvbUpProb) - np.sqrt(nUpVars * np.log(1 / np.maximum(pFailUp, 1e-20)) / 2)
         ksiUp = np.minimum(ksiUp, nUpVars)
-        ksiLow = np.sum(mvbLowProb) + np.sqrt(nLowVars * np.log(1 / np.maximum(pFail, 1e-20)) / 2)
+        ksiLow = np.sum(mvbLowProb) + np.sqrt(nLowVars * np.log(1 / np.maximum(pFailLow, 1e-20)) / 2)
         ksiLow = np.maximum(ksiLow, 0)
 
         return ksiUp, ksiLow
