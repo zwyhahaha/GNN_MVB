@@ -48,3 +48,5 @@ TARGET_DT_NAMES = {
 PROB_NAMES = list(TRAIN_DT_NAMES.keys())
 
 INSTANCE_FILE_TYPES = {'setcover': '.lp', 'cauctions':'.lp', 'indset':'.lp', 'fcmnf':'.mps', 'gisp':'.mps'}
+
+MODEL_INDEX = {'setcover': 0, 'cauctions': 0, 'indset':0, 'fcmnf':1, 'gisp':1}

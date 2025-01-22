@@ -164,7 +164,7 @@ class MVB(object):
     #     pSuccess = Xpred[index_at_ratio]
     #     return pSuccess
 
-    def getMultiVarBranch(self, warm=False, Xpred=None, upCut=True, lowCut=True):
+    def getMultiVarBranch(self, warm=False, Xpred=None, upCut=True, lowCut=True, normalize=False):
 
         """
         Implement the MVB framework to solve the embedded model
@@ -187,8 +187,13 @@ class MVB(object):
         self._fixVars(fixLowIdx, isUpper=False)
 
         for i in range(self._nRegion):
-            (mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb) = self._getMVBIdx(Xpred, self._tmvb[i + 1], self._tmvb[i])
+            if normalize:
+                (mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb) = self._getMVBIdxWithNormalization(Xpred, self._tmvb[i + 1], self._tmvb[i])
+            else:
+                (mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb) = self._getMVBIdx(Xpred, self._tmvb[i + 1], self._tmvb[i])
             (ksiUp, ksiLow) = self._getHoeffdingBound(mvbUpProb, mvbLowProb, self._pSuccessLow[i], self._pSuccessUp[i])
+            print("Get MVB bounds...")
+            print(len(mvbUpIdx), ksiUp, len(mvbLowIdx), ksiLow)
 
             # Run MVB
             if upCut:
@@ -212,7 +217,8 @@ class MVB(object):
 
         return self._mvbmodel
     
-    def generate_subproblem(self, model: Model, up_id, low_id, k_up, k_low, up=True, low=True, obj = None, isGeq=True, upCut=True, lowCut=True):
+    def generate_subproblem(self, model: Model, up_id, low_id, k_up, k_low, up=True, low=True, obj = None, isGeq=True, upCut=True, lowCut=True,
+                            gap=0.005):
 
         if self._solver == self.MVB_SOLVER_GUROBI:
             vars = model.getVars()
@@ -234,14 +240,16 @@ class MVB(object):
                 
             if obj is not None:
                 if isGeq:
-                    model.addConstr(model.getObjective() >= obj + abs(obj)*0.01)
+                    model.addConstr(model.getObjective() >= obj + abs(obj)*gap)
+                    # model.addConstr(model.getObjective() >= obj + 1)
                 else:
-                    model.addConstr(model.getObjective() <= obj - abs(obj)*0.0)
+                    model.addConstr(model.getObjective() <= obj - abs(obj)*gap)
+                    # model.addConstr(model.getObjective() <= obj - 1)
 
         return model
 
     
-    def get_model_list(self, Xpred=None, obj = None, isGeq=True, upCut=True, lowCut=True):
+    def get_model_list(self, Xpred=None, obj = None, isGeq=True, upCut=True, lowCut=True, gap=0.005):
         if Xpred is None:
             if self._learnerStatus != self.MVB_LEARNER_TRAINED:
                 raise RuntimeError("Learner is not trained")
@@ -258,23 +266,23 @@ class MVB(object):
             (ksiUp, ksiLow) = self._getHoeffdingBound(mvbUpProb, mvbLowProb, self._pSuccessLow[i], self._pSuccessUp[i])
 
             if upCut and lowCut:
-                model_cup_low = self._mvbmodel.copy()
-                model_up_clow = self._mvbmodel.copy()
-                model_cup_clow = self._mvbmodel.copy()
+                model_cup_low = self._model.copy()
+                model_up_clow = self._model.copy()
+                model_cup_clow = self._model.copy()
                 model_list = [self.generate_subproblem(model_cup_low, mvbUpIdx, mvbLowIdx,
-                                                ksiUp, ksiLow, up=False, low=True, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut),
-                                self.generate_subproblem(model_up_clow, mvbUpIdx, mvbLowIdx,
-                                                    ksiUp, ksiLow, up=True, low=False, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut),
-                                self.generate_subproblem(model_cup_clow, mvbUpIdx, mvbLowIdx,
-                                                    ksiUp, ksiLow, up=False, low=False, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut)]
+                                                ksiUp, ksiLow, up=False, low=True, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut,gap=gap),
+                            self.generate_subproblem(model_up_clow, mvbUpIdx, mvbLowIdx,
+                                                ksiUp, ksiLow, up=True, low=False, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut, gap=gap),
+                            self.generate_subproblem(model_cup_clow, mvbUpIdx, mvbLowIdx,
+                                                ksiUp, ksiLow, up=False, low=False, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut, gap=gap)]
             elif not upCut and not lowCut:
                 model_list = []
             elif upCut:
-                model_list = [self.generate_subproblem(self._mvbmodel.copy(), mvbUpIdx, mvbLowIdx,
-                                ksiUp, ksiLow, up=False, low=True, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut)]
+                model_list = [self.generate_subproblem(self._model.copy(), mvbUpIdx, mvbLowIdx,
+                                ksiUp, ksiLow, up=False, low=True, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut, gap=gap)]
             elif lowCut:
-                model_list = [self.generate_subproblem(self._mvbmodel.copy(), mvbUpIdx, mvbLowIdx,
-                                ksiUp, ksiLow, up=True, low=False, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut)]
+                model_list = [self.generate_subproblem(self._model.copy(), mvbUpIdx, mvbLowIdx,
+                                ksiUp, ksiLow, up=True, low=False, obj = obj, isGeq=isGeq, upCut=upCut, lowCut=lowCut, gap=gap)]
 
         return model_list
 
@@ -344,6 +352,34 @@ class MVB(object):
         mvbLowProb = Xpred[mvbLowIdx]
 
         return mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb
+    
+    @staticmethod
+    def normalize_probs(probs,method='clip'):
+        if method == 'clip':
+            a_normalized = np.clip(probs, 0.05, 1)
+            a_normalized /= np.max(a_normalized)
+        elif method == 'log':
+            a_normalized = np.log(probs + 1e-30)
+            a_normalized -= np.min(a_normalized)
+            a_normalized /= np.max(a_normalized)
+        else:
+            raise NotImplementedError("Support for normalization method not added")
+        return a_normalized
+
+    @staticmethod
+    def _getMVBIdxWithNormalization(Xpred, tLow, tUp):
+
+        """
+        Get MVB indices with original probs
+        But the probs are normalized
+        """
+        Xpred_n = MVB.normalize_probs(Xpred)
+        mvbUpIdx = np.where((Xpred >= tLow) & (Xpred < tUp))[0]
+        mvbUpProb = Xpred_n[mvbUpIdx]
+        mvbLowIdx = np.where((Xpred <= 1 - tLow) & (Xpred > 1 - tUp))[0]
+        mvbLowProb = Xpred_n[mvbLowIdx]
+
+        return mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb
 
     @staticmethod
     def _getHoeffdingBound(mvbUpProb, mvbLowProb, pSuccessLow, pSuccessUp):
@@ -359,9 +395,11 @@ class MVB(object):
         pFailLow = 1 - pSuccessLow
         pFailUp  = 1 - pSuccessUp
         ksiUp = np.sum(mvbUpProb) - np.sqrt(nUpVars * np.log(1 / np.maximum(pFailUp, 1e-20)) / 2)
-        ksiUp = np.minimum(ksiUp, nUpVars)
+        ksiUp = np.maximum(0,np.minimum(ksiUp, nUpVars))
+        # ksiUp=0
         ksiLow = np.sum(mvbLowProb) + np.sqrt(nLowVars * np.log(1 / np.maximum(pFailLow, 1e-20)) / 2)
         ksiLow = np.maximum(ksiLow, 0)
+        # ksiLow=nLowVars
 
         return ksiUp, ksiLow
 

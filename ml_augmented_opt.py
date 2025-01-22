@@ -557,12 +557,12 @@ def opt_with_gnn(
 
 def experiment_opt_with_gnn(args):
 
-    model, instance_name, data_path, instance_path, log_path, config, strategy, timelimit, reduction_timelimit, train_dt_name, \
+    instance_name, model, data_path, instance_path, log_path, config, strategy, timelimit, reduction_timelimit, train_dt_name, \
     val_u_mean, val_confident_ratio_mean, val_confident_acc_mean, val_bound_error_stats = args
    
     val_bound_err_min, val_bound_err_mean, val_bound_err_max, val_bound_err_std = val_bound_error_stats
 
-    result_df_file_path = log_path.joinpath(f"{instance_name}.csv")
+    result_df_file_path = log_path.joinpath(f"{instance_path}.csv")
 
     if Path(result_df_file_path).exists():
         result_df = pd.read_csv(str(result_df_file_path))
@@ -609,82 +609,82 @@ def experiment_opt_with_gnn(args):
     confident_idx = get_confident_pred_idx(uncertainty, prediction, uncertainty_threshold, binary_idx)
     sol = None
     
-    if 'R' in strategy:
+    # if 'R' in strategy:
 
-        rst = time.time()
-        log_df_lst = []
+    #     rst = time.time()
+    #     log_df_lst = []
 
-        if 'UPR' in strategy:
-            print(f">>> {instance_name}: Starting UPR...")
-            sol, reduction_result, iter_results, log_df_lst = uncertainty_based_reduction(instance_cpx, reduction_timelimit, prediction, binary_idx, uncertainty, uncertainty_threshold, n_iter=5)
-            print(f">>> {instance_name}: UPR completed.")
-            for iter_result in iter_results:
-                result.update(iter_result)
-        else:                  
-            sol, reduction_result, log_df = reduction_then_solve(instance_cpx, reduction_timelimit, prediction, confident_idx, binary_idx)
-            log_df_lst.append(log_df)
+    #     if 'UPR' in strategy:
+    #         print(f">>> {instance_name}: Starting UPR...")
+    #         sol, reduction_result, iter_results, log_df_lst = uncertainty_based_reduction(instance_cpx, reduction_timelimit, prediction, binary_idx, uncertainty, uncertainty_threshold, n_iter=5)
+    #         print(f">>> {instance_name}: UPR completed.")
+    #         for iter_result in iter_results:
+    #             result.update(iter_result)
+    #     else:                  
+    #         sol, reduction_result, log_df = reduction_then_solve(instance_cpx, reduction_timelimit, prediction, confident_idx, binary_idx)
+    #         log_df_lst.append(log_df)
          
-        is_infeasible_reduction = 'infeasible' in reduction_result['reduction_status']
-        feasible_confident_idx = confident_idx.copy()
+    #     is_infeasible_reduction = 'infeasible' in reduction_result['reduction_status']
+    #     feasible_confident_idx = confident_idx.copy()
 
-        if is_infeasible_reduction:
-            repair_timelimit = reduction_timelimit
-            print(f">>> {instance_name}: Starting repair...")
-            is_repaired, feasible_confident_idx, repair_time, repair_iter = repair(instance_path, instance_name, prediction, binary_idx, confident_idx, repair_timelimit)
+    #     if is_infeasible_reduction:
+    #         repair_timelimit = reduction_timelimit
+    #         print(f">>> {instance_name}: Starting repair...")
+    #         is_repaired, feasible_confident_idx, repair_time, repair_iter = repair(instance_path, instance_name, prediction, binary_idx, confident_idx, repair_timelimit)
 
-            if is_repaired:
-                instance_cpx = get_cplex_instance(instance_path, instance_name, interface_type='cplex')
-                sol, reduction_result, log_df = reduction_then_solve(instance_cpx, reduction_timelimit, prediction, feasible_confident_idx, binary_idx)               
-                log_df_lst.append(log_df)
-            else:
-                print(f">>> {instance_name}: The reduced problem could not be repaired!!!")
+    #         if is_repaired:
+    #             instance_cpx = get_cplex_instance(instance_path, instance_name, interface_type='cplex')
+    #             sol, reduction_result, log_df = reduction_then_solve(instance_cpx, reduction_timelimit, prediction, feasible_confident_idx, binary_idx)               
+    #             log_df_lst.append(log_df)
+    #         else:
+    #             print(f">>> {instance_name}: The reduced problem could not be repaired!!!")
 
-        rst = time.time() - rst
-        solve_timelimit -= rst
+    #     rst = time.time() - rst
+    #     solve_timelimit -= rst
 
-        save_reduction_log_df(log_df_lst, log_path, instance_name)
+    #     save_reduction_log_df(log_df_lst, log_path, instance_name)
         
-        result.update(reduction_result)
-        result['repair_time'] = repair_time
-        result['repair_iter'] = repair_iter
-        result['is_infeasible_reduction'] = is_infeasible_reduction
-        result["reduction_rate"] = len(confident_idx) / result["num_variables"]
-        result["reduction_rate_after_repair"] = len(feasible_confident_idx)/result["num_variables"]
+    #     result.update(reduction_result)
+    #     result['repair_time'] = repair_time
+    #     result['repair_iter'] = repair_iter
+    #     result['is_infeasible_reduction'] = is_infeasible_reduction
+    #     result["reduction_rate"] = len(confident_idx) / result["num_variables"]
+    #     result["reduction_rate_after_repair"] = len(feasible_confident_idx)/result["num_variables"]
         
-        #print("Reduction result:", result)
+    #     #print("Reduction result:", result)
  
-    if 'NS' in strategy:
+    # if 'NS' in strategy:
 
-        if 'UPR' in strategy:
+    #     if 'UPR' in strategy:
 
-            # Deleting the cuts added by UPR so that the original problem instance is restored for global search with NS.
-            con_names = instance_cpx.linear_constraints.get_names()
-            reduction_cuts = [c for c in con_names if 'fixed_val' in c]
-            instance_cpx.linear_constraints.delete(reduction_cuts)
+    #         # Deleting the cuts added by UPR so that the original problem instance is restored for global search with NS.
+    #         con_names = instance_cpx.linear_constraints.get_names()
+    #         reduction_cuts = [c for c in con_names if 'fixed_val' in c]
+    #         instance_cpx.linear_constraints.delete(reduction_cuts)
         
-        var_scores = probs if config['pred_loss_type'] == 'bce' else 1 - (1 / (1+evidence))
+    #     var_scores = probs if config['pred_loss_type'] == 'bce' else 1 - (1 / (1+evidence))
 
-        cb = instance_cpx.register_callback(LoggingCB)
-        print(f">>> {instance_name}: Starting NS...")
-        sol, ns_result = node_selection(instance_cpx, sol, solve_timelimit, prediction, binary_idx, var_scores)    
+    #     cb = instance_cpx.register_callback(LoggingCB)
+    #     print(f">>> {instance_name}: Starting NS...")
+    #     sol, ns_result = node_selection(instance_cpx, sol, solve_timelimit, prediction, binary_idx, var_scores)    
 
-        result.update(ns_result)    
+    #     result.update(ns_result)    
 
-        cb.save_as_npz(str(log_path.joinpath(instance_name+ "_log.npz")), ns_result['ns_solve_time'], ns_result['ns_gap'], ns_result['ns_bestobj'])
+    #     cb.save_as_npz(str(log_path.joinpath(instance_name+ "_log.npz")), ns_result['ns_solve_time'], ns_result['ns_gap'], ns_result['ns_bestobj'])
 
     print(result)
     
-    total_solve_time = time.time() - total_solve_time
+    # total_solve_time = time.time() - total_solve_time
 
-    result['timelimit'] = timelimit
-    result['total_solve_time'] = total_solve_time
-    result['soft_pred_bias'] = probs[:,1].mean()
-    result["val_u_mean"] = val_u_mean
-    result["val_confident_ratio_mean"] = val_confident_ratio_mean
-    result["val_bound_min"] = val_bound_err_min
-    result["val_bound_mean"] = val_bound_err_mean
-    result["val_bound_max"] = val_bound_err_max
-    result["val_bound_std"] = val_bound_err_std
+    # result['timelimit'] = timelimit
+    # result['total_solve_time'] = total_solve_time
+    # result['soft_pred_bias'] = probs[:,1].mean()
+    # result["val_u_mean"] = val_u_mean
+    # result["val_confident_ratio_mean"] = val_confident_ratio_mean
+    # result["val_bound_min"] = val_bound_err_min
+    # result["val_bound_mean"] = val_bound_err_mean
+    # result["val_bound_max"] = val_bound_err_max
+    # result["val_bound_std"] = val_bound_err_std
     
     if not incumbent is None: # i.e., data is labeled
 
@@ -733,6 +733,7 @@ def experiment(
 
   val_dt = get_co_datasets(prob_name, [val_dt_name], [val_size], False)[0]
   models = []
+  strategies = ['NS', 'UPR+NS']
   
   for i, config in enumerate(model_configs):
 
@@ -740,7 +741,7 @@ def experiment(
     inference_dir = model_dir.joinpath("inference")
     Path(inference_dir).mkdir(parents=True, exist_ok=True)
     
-    if models_dict is None:
+    if models_dict is not None:
         model_name, model, _ = load_model(config, model_dir, val_dt)
 
     print(">>> Getting validation metrics...") 
@@ -770,36 +771,39 @@ def experiment(
 
         inference_dir = PROJECT_DIR.joinpath('trained_models', config["prob_name"], train_dt_name, "inference")
 
-        for target_dt_idx, target_dt_name in enumerate(target_dt_names):
-            print(">>>>>>", target_dt_name)
+        # for target_dt_idx, target_dt_name in enumerate(target_dt_names):
+        #     print(">>>>>>", target_dt_name)
 
-            instance_path = DATA_DIR.joinpath('instances', prob_name, target_dt_name)
+        #     instance_path = DATA_DIR.joinpath('instances', prob_name, target_dt_name)
             
-            target_instances = target_dataset_probs[target_dt_idx]
+        #     target_instances = target_dataset_probs[target_dt_idx]
         
-            for strategy in strategies:
+        #     for strategy in strategies:
                     
-                data_path = DATA_DIR.joinpath('graphs', prob_name, target_dt_name, 'processed')  
-                log_path = inference_dir.joinpath(f"{target_dt_name}_{strategy}_{model_name}")
-                Path(log_path).mkdir(parents=True, exist_ok=True)
+        #         data_path = DATA_DIR.joinpath('graphs', prob_name, target_dt_name, 'processed')  
+        #         log_path = inference_dir.joinpath(f"{target_dt_name}_{strategy}_{model_name}")
+        #         Path(log_path).mkdir(parents=True, exist_ok=True)
                 
-                args = pd.DataFrame(target_instances, columns=['instance_name'], index=np.arange(len(target_instances)))
-                args_lst = [deepcopy(model), data_path, instance_path, log_path, config, strategy, timelimit, reduction_timelimit, train_dt_name, \
-                            val_unc_threshold, val_confident_ratio_mean, val_confident_acc_mean, val_bound_error_stats]
+        #         args = pd.DataFrame(target_instances, columns=['instance_name'], index=np.arange(len(target_instances)))
+        #         args_lst = [deepcopy(model), data_path, instance_path, log_path, config, strategy, timelimit, reduction_timelimit, train_dt_name, \
+        #                     val_unc_threshold, val_confident_ratio_mean, val_confident_acc_mean, val_bound_error_stats]
                 
-                for i, arg in enumerate(args_lst):
-                    args[i] = [arg] * len(args)
+        #         for i, arg in enumerate(args_lst):
+        #             args[i] = [arg] * len(args)
 
-                args = args.values.tolist()
+        #         args = args.values.tolist()
 
-                with Pool(n_threads) as p:
-                    p.map(experiment_opt_with_gnn, args)
+        #         experiment_opt_with_gnn(args[0])
 
-                log_files = [ name  for name in glob.glob(str(log_path.joinpath("*.csv"))) if not 'reduction' in name]
+        #         # with Pool(n_threads) as p:
+        #         #     p.map(experiment_opt_with_gnn, args)
+
+        #         log_files = [ name  for name in glob.glob(str(log_path.joinpath("*.csv"))) if not 'reduction' in name]
                 
-                if len(log_files) > 0:           
-                    results_df = pd.concat([pd.read_csv(file_path) for file_path in log_files])
-                    results_df.to_csv(str(log_path)+".csv", index=False)
+        #         if len(log_files) > 0:           
+        #             results_df = pd.concat([pd.read_csv(file_path) for file_path in log_files])
+        #             results_df.to_csv(str(log_path)+".csv", index=False)
+        break
 
 if __name__ == '__main__':
 

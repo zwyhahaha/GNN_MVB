@@ -126,44 +126,47 @@ def cpx_to_graph_data(instance_name, instance_file_type, instance_path, get_pres
     return model, graph, data
 
 def create_graph_and_data_object(args):
- 
+    
     prob_name, dt_type, instance_name, instance_file_type, instance_path, solution_path, graph_path, write_graph = args
 
-    graph_file_name = instance_name + "_labeled_graph.gpickle"
-    data_file_name = instance_name + "_data.pt"
-    solution_file_path = solution_path.joinpath(instance_name + "_pool.npz")
-    data_path = graph_path.joinpath('processed')
-    
-    if data_file_name in os.listdir(data_path):
-        # print(data_file_name, 'available')
-        return
+    try:
+        graph_file_name = instance_name + "_labeled_graph.gpickle"
+        data_file_name = instance_name + "_data.pt"
+        solution_file_path = solution_path.joinpath(instance_name + "_pool.npz")
+        data_path = graph_path.joinpath('processed')
+        
+        if data_file_name in os.listdir(data_path):
+            # print(data_file_name, 'available')
+            return
 
-    model = cplex.Cplex(str(instance_path.joinpath(instance_name + instance_file_type))) 
-            
-    # check setcover instance has been modified
-    if prob_name == 'setcover': 
-        assert min(model.objective.get_linear()) >= 5
+        model = cplex.Cplex(str(instance_path.joinpath(instance_name + instance_file_type))) 
+                
+        # check setcover instance has been modified
+        if prob_name == 'setcover': 
+            assert min(model.objective.get_linear()) >= 5
 
-    preprocess_start_time = time.time()
+        preprocess_start_time = time.time()
 
-    is_labeled = False
-    graph, _ = get_bipartite_graph(model)
+        is_labeled = False
+        graph, _ = get_bipartite_graph(model)
 
-    if dt_type in ['train', 'val']:
+        if dt_type in ['train', 'val']:
 
-        if Path(solution_file_path).exists():
-            
-            graph = get_labeled_graph(graph, instance_name, model, solution_path)
-            is_labeled = True
+            if Path(solution_file_path).exists():
+                
+                graph = get_labeled_graph(graph, instance_name, model, solution_path)
+                is_labeled = True
 
-        else:
-            raise Exception(">> Solution pool for",  prob_name, dt_type, instance_name, "is not available.")
+            else:
+                raise Exception(">> Solution pool for",  prob_name, dt_type, instance_name, "is not available.")
 
-    _ = create_data_object(instance_name, model, graph, is_labeled, str(data_path), preprocess_start_time)
+        _ = create_data_object(instance_name, model, graph, is_labeled, str(data_path), preprocess_start_time)
 
-    if write_graph:
-        with open(graph_path.joinpath(graph_file_name),  'wb') as f:
-            pickle.dump(graph, f, pickle.HIGHEST_PROTOCOL)
+        if write_graph:
+            with open(graph_path.joinpath(graph_file_name),  'wb') as f:
+                pickle.dump(graph, f, pickle.HIGHEST_PROTOCOL)
+    except Exception as e:
+        print(">> Error in creating data object for", prob_name, dt_type, instance_name, e)
 
 def main(prob_name: str, 
          dt_names: List[str], 

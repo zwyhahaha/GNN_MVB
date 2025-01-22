@@ -16,9 +16,10 @@ def get_config(prob_name):
     return config
 
 def get_instance_names(prob_name, target_dt_name):
-    instances_dir = DATA_DIR.joinpath('instances', prob_name, target_dt_name)
+    instances_dir = DATA_DIR.joinpath('graphs', prob_name, target_dt_name, 'processed')
     instance_type = INSTANCE_FILE_TYPES[prob_name]
-    instance_names = [f.stem for f in instances_dir.glob(f'*{instance_type}')]
+    instance_type = '.pt'
+    instance_names = [f.stem.replace('_data', '') for f in instances_dir.glob(f'*{instance_type}')]
     return instance_names
 
 def get_data(prob_name, target_dt_name, instance_name):
@@ -37,8 +38,15 @@ def get_probs(config, model, data):
     probs, prediction, _, _, _, _ = get_prediction(config, model, data)
     return probs, prediction
 
+def normalize_probs(probs):
+    a_normalized = np.log(probs + 1e-30)
+    a_normalized -= np.min(a_normalized)
+    a_normalized /= np.max(a_normalized)
+    return a_normalized
+
 def get_instance_path(prob_name, target_dt_name, instance_name):
-    instance_path = f'data/instances/{prob_name}/{target_dt_name}/{instance_name}.lp'
+    instance_type = INSTANCE_FILE_TYPES[prob_name]
+    instance_path = f'data/instances/{prob_name}/{target_dt_name}/{instance_name}{instance_type}'
     return instance_path 
 
 def whenIsBestMinObjFound(model, where, time=TMVBarray):
@@ -184,7 +192,7 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
         mvbsolver.registerModel(initgrbmodel, solver=solver)
         mvbsolver.registerVars(list(range(n)))
         mvbsolver.setParam(threshold=args.fixthresh,tmvb=[args.fixthresh, 0.9],pSuccessLow = [args.psucceed_low],pSuccessUp = [args.psucceed_up])
-        mvb_model = mvbsolver.getMultiVarBranch(Xpred=probs[:,1],upCut=args.upCut,lowCut=args.lowCut)
+        mvb_model = mvbsolver.getMultiVarBranch(Xpred=probs[:,1],upCut=args.upCut,lowCut=args.lowCut,normalize=args.normalize)
         mvb_model.setParam("MIPGap", args.gap/2)
         TOriginalArray[0] = 0
         TOriginalArray[1] = 0
@@ -196,7 +204,10 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
             TOriginalArray[2] = min(originalObjVal, originalObjVal_warm)
             mvb_model.optimize(whenIsMVBMaxObjFound)
         mvb_time = mvb_model.getAttr("RunTime")
-        mvbObjVal = mvb_model.getAttr("ObjVal")
+        try:
+            mvbObjVal = mvb_model.getAttr("ObjVal")
+        except:
+            mvbObjVal = np.nan
         if TOriginalArray[1]:
             TimeDominance = TOriginalArray[3]
         else:
@@ -222,7 +233,8 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
 
         if args.robust:
             isGeq = 1 if ModelSense == -1 else 0
-            model_list = mvbsolver.get_model_list(Xpred=probs[:,1],obj=mvbObjVal,isGeq=isGeq,upCut=args.upCut,lowCut=args.lowCut)
+            model_list = mvbsolver.get_model_list(Xpred=probs[:,1],obj=mvbObjVal,isGeq=isGeq,
+                                                  upCut=args.upCut,lowCut=args.lowCut,gap=0)
             model_names = ["cl", "uc", "cc"]
             times = []
             best_obj = mvbObjVal
@@ -230,7 +242,7 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
                 model.setParam("MIPGap", args.gap/2)
                 # model.setParam("Cuts", 3)
                 # model.setParam("Heuristics", 0)
-                # model.setParam("MIPFocus", 3)
+                model.setParam("MIPFocus", 3)
                 model.optimize()
                 time = model.getAttr("RunTime")
                 times.append(time)
@@ -278,15 +290,16 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--maxtime", type=float, default=3600.0)
 parser.add_argument("--fixthresh", type=float, default=1.1)
-parser.add_argument("--psucceed_low", type=float, default=0.99)
-parser.add_argument("--psucceed_up", type=float, default=0.99)
+parser.add_argument("--psucceed_low", type=float, default=1-1e-7)
+parser.add_argument("--psucceed_up", type=float, default=0.99999)
 parser.add_argument("--gap", type=float, default=0.01)
 parser.add_argument("--heuristics", type=float, default=0.05)
 parser.add_argument("--solver", type=str, default='gurobi')
-parser.add_argument("--prob_name", type=str, default='setcover')
-parser.add_argument("--robust", type=int, default=True)
-parser.add_argument("--upCut", type=int, default=1)
-parser.add_argument("--lowCut", type=int, default=True)
+parser.add_argument("--prob_name", type=str, default='indset')
+parser.add_argument("--robust", type=int, default=0)
+parser.add_argument("--upCut", type=int, default=0)
+parser.add_argument("--lowCut", type=int, default=1)
+parser.add_argument("--normalize", type=int, default=0)
 
 args = parser.parse_args()
 solver = args.solver
@@ -294,12 +307,14 @@ prob_name = args.prob_name
 config = get_config(prob_name)
 # target_dt_names_lst = TARGET_DT_NAMES[prob_name]
 target_dt_names_lst = [VAL_DT_NAMES[prob_name]]
-# target_dt_names_lst = ['transfer_2000_4']
-experiment_name = f"{solver}_heuristics_{args.heuristics}_fixthresh_{args.fixthresh}_plow_{args.psucceed_low}_pup_{args.psucceed_up}_gap_{args.gap}_maxtime_{args.maxtime}_robust_{args.robust}"
+# target_dt_names_lst = [TRAIN_DT_NAMES[prob_name]]
+# target_dt_names_lst = ['transfer']
+experiment_name = f"{solver}_robust_{args.robust}_plow_{args.psucceed_low * args.lowCut}_pup_{args.psucceed_up * args.upCut}_gap_{args.gap}_normalize_{args.normalize}_heuristics_{args.heuristics}"
 
 for target_dt_name in target_dt_names_lst:
     instance_names = get_instance_names(prob_name, target_dt_name)
     for instance_name in instance_names:
+        # instance_name = 'instance_183'
         try:
             data = get_data(prob_name, target_dt_name, instance_name)
             model, model_name = get_model(config, data)

@@ -90,3 +90,65 @@ DATASET
 ## 0115 record
 - [x] fix a bug in braching rule. >= a vs. <= (a-1)
 - [x] use different probability for up and low cut
+
+## 0116 record
+- [x] The 3 subproblems run too fast? is there any problems? -> yes, copy from a model with constraints
+- [ ] slower on dataset cauctions
+- [ ] experiments design
+
+## 0118 record
+- [x] subproblems are hard to certify infeasibility
+- [x] check the lp file, the constraints are correct; set the ksi value
+- [ ] need to tune pSuccess value, or change the MIPGap.
+- [x] run experiments for fcmnf, gisp: the predictions for these datasets are all 0. prediction model???
+
+(0.9,0.999999)
+5.202924966812134 4.4546167850494385 0.1715221405029297 45.79219579696655 [26.434773921966553, 6.3266448974609375, 12.561950922012329]
+(0.9,0.999)
+5.267876863479614 4.277310848236084 0.1682591438293457 33.014636754989624 [10.134559869766235, 4.9163899421691895, 17.477831840515137]
+(0.999,0.9)
+5.178627967834473 4.37123703956604 0.18824291229248047 31.716822862625122 [8.816731929779053, 0.21336698532104492, 22.168463945388794]
+0.999
+5.140126943588257 4.323051929473877 0.17703008651733398 29.24660587310791 [3.8896260261535645, 4.704403877258301, 17.315256118774414]
+0.999999
+5.208042144775391 4.490746021270752 0.17797112464904785 42.648179054260254 [7.831287145614624, 4.540284872055054, 24.10770010948181]
+0.7
+5.365480184555054 4.345301866531372 0.18372201919555664 17.468525886535645 [0.1407790184020996, 0.1584148406982422, 16.984760999679565]
+5.160451889038086 4.398669004440308 0.18472599983215332 25.23917818069458 [1.2537739276885986, 0.8586239814758301, 22.940697193145752]
+0.5 (gap for subproblems is smaller than gap/2, 447 vs 448, gap=0.5%)
+5.023036003112793 4.526340961456299 3600.0 23.22577404975891 [0.13572001457214355, 0.1790010929107666, 22.748383045196533] 
+transfer2000, gap=0, (0.999,0.9), cannot solve the problem?
+12.451988935470581 12.305760860443115 1.1636438369750977 342.4629111289978 [237.63429808616638, 0.5387420654296875, 90.6875410079956]
+
+fcmnf transfer (50 instances), >>1200s (14%)
+Get MVB bounds...
+0 0.0 80497 1013.1250758393608
+
+gisp time (gap 0.05): 126.99090218544006 141.74243187904358
+
+PRIMAL HEURISTIC
+results/indset/valid_1000_4/gurobi_heuristics_0.05_fixthresh_1.1_psucceed_0.9_gap_0.01_maxtime_3600.0.csv
+
+## 0119 record
+- [x] for primal heuristic test, the distribution is skewed, so that pSucceed must be very high. add probs normalization to fix that.
+- [ ] check the prediction acc in code, maybe there is a misnatch between prediction results and input
+- [ ] add a loop for determine the time dominance. if 1, use callback time. if 0, use solving time.
+
+CUDA_VISIBLE_DEVIVES=1 python ml_augmented_opt.py
+compute in function `get_uncertainty_params`
+main function:
+
+```python
+probs, pred, uncertainty, evidence, target, binary_idx = get_prediction(config, model, data) 
+correct_pred_uncertainty = np.median(uncertainty[target==pred]) if threshold_type == 'median' else np.mean(uncertainty[target==pred])
+val_u_mean_lst.append(correct_pred_uncertainty)
+is_confident = (uncertainty <= correct_pred_uncertainty).ravel()
+val_confident_ratio.append(is_confident.mean())
+confident_acc = (pred[is_confident] == target[is_confident]).mean()
+val_confident_acc_lst.append(confident_acc)
+pred_sum = pred.sum()
+incumbent_sum = target.sum()
+val_bound_err_lst.append(incumbent_sum - pred_sum)
+```
+output
+val_u_mean: 0.13467924 val_confident_ratio_mean: 0.44688 val_confident_acc_mean: 0.9986185287365168
