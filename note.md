@@ -152,3 +152,20 @@ val_bound_err_lst.append(incumbent_sum - pred_sum)
 ```
 output
 val_u_mean: 0.13467924 val_confident_ratio_mean: 0.44688 val_confident_acc_mean: 0.9986185287365168
+
+## 0125 record
+- [x] acc is high, but not informative
+- [x] try different prediction models, tune the thresholds: not effective
+
+## 0128 record
+>>> Prediction accuracy: 0.871
+>>> Prediction accuracy (1): 0.0
+>>> Prediction accuracy (0): 0.9216931216833684
+21 11.417043664575539 906 75.06402983581636
+- 927 variables are involved in the MVB within interval [0.9, 1.1)
+6.850820064544678 6.239526987075806 7.808387994766235 0.0 0.0
+
+0 0.0 734 15.949459287184911
+- 734 variables are involved in the MVB within interval [0.999999, 1.1)
+Get MVB bounds...
+0 0.0 411 11.934896128858549

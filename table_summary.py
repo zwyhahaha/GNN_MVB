@@ -11,6 +11,7 @@ def shifted_geometric_mean(series, shift=1):
 
 def calculate_shifted_geometric_mean(csv_file, selected_columns, shift=1):
     df = pd.read_csv(csv_file)
+    df = df[df['TimeDominance'] != 3600]
     result = {}
     for column in selected_columns:
         if column in df.columns:
@@ -20,14 +21,17 @@ def calculate_shifted_geometric_mean(csv_file, selected_columns, shift=1):
     return result
 
 csv_files = {
-    'setcover': 'results/setcover/valid_500r_1000c_0.05d/gurobi_heuristics_0.05_fixthresh_1.1_plow_0.99_pup_0.99999_gap_0.01_maxtime_3600.0_robust_1.csv',
-    'cauctions': 'results/cauctions/valid_200_1000/gurobi_heuristics_0.05_fixthresh_1.1_plow_0.9999999999_pup_1.0_gap_0.01_maxtime_3600.0_robust_1.csv',
-    'indset': 'results/indset/valid_1000_4/gurobi_heuristics_0.05_fixthresh_1.1_plow_0.9_pup_0.9_gap_0.01_maxtime_3600.0_robust_1.csv',
+    'setcover': 'results/setcover/valid_500r_1000c_0.05d/gurobi_robust_0_plow_0.99_pup_0.0_gap_0.01_normalize_0_heuristics_0.05.csv',
+    'cauctions': 'results/cauctions/valid_200_1000/gurobi_robust_0_plow_0.99999999999999_pup_0.0_gap_0.01_normalize_0_heuristics_0.05.csv',
+    'indset': 'results/indset/valid_1000_4/gurobi_robust_0_plow_0.9_pup_0.9_gap_0.01_normalize_0_heuristics_0.05.csv',
+    'fcmnf': 'results/fcmnf/valid/gurobi_robust_0_plow_0.9999999999_pup_0.0_gap_0.01_normalize_0_heuristics_0.05.csv',
+    'gisp': 'results/gisp/valid/gurobi_robust_0_plow_0.99999_pup_0.0_gap_0.01_normalize_0_heuristics_0.05.csv'
 }
-datasets = ['setcover', 'cauctions', 'indset']
+datasets = ['setcover', 'cauctions', 'indset', 'fcmnf', 'gisp']
 shift = 0
 output_file = f'results/SGM{shift}.csv'
-selected_columns = ['ori_time','ori_warm_time','mvb_time_all','ori_best_time','ori_warm_best_time','TimeDominance']
+# selected_columns = ['ori_time','ori_warm_time','mvb_time_all','ori_best_time','ori_warm_best_time','TimeDominance']
+selected_columns = ['ori_time','ori_warm_time','mvb_time','ori_best_time','ori_warm_best_time','TimeDominance']
 
 with open(output_file, mode='w', newline='') as file:
     writer = csv.writer(file)

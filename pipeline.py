@@ -12,7 +12,7 @@ TMVBWarmarray = [0, 0]
 TOriginalArray = [0, 0, 0, 0]
 
 def get_config(prob_name):
-    config = get_trained_model_config(prob_name, 0)
+    config = get_trained_model_config(prob_name, 2)
     return config
 
 def get_instance_names(prob_name, target_dt_name):
@@ -121,8 +121,8 @@ def computeObjLoss(mvbObj, originalObj, ModelSense = -1):
     elif ModelSense == 1:
         return (mvbObj - originalObj) / originalObj * 100
 
-def mvb_experiment(instance_path, solver, probs, prediction, args):
-    instance_name = instance_path.split('/')[-1].split('.')[0]
+def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args):
+    # instance_name = instance_path.split('/')[-1].split('.')[0]
     if solver == 'copt':
         env = cp.Envr()
         cp_model = env.createModel("lp")
@@ -170,6 +170,17 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
         originalObjVal = grbmodel.getAttr("ObjVal")
         ori_best_time = TMVBarray[0]
 
+        ### test prediction accuracy
+        sol = grbmodel.getVars()
+        sol = np.array([v.x for v in sol])
+        acc = (sol==prediction).sum() / len(sol)
+        print(">>> Prediction accuracy:", acc)
+        idx = (prediction == 1)
+        acc1 = (sol[idx]==prediction[idx]).sum() / (len(sol[idx])+1e-8)
+        print(">>> Prediction accuracy (1):", acc1)
+        acc0 = (sol[~idx]==prediction[~idx]).sum() / (len(sol[~idx])+1e-8)
+        print(">>> Prediction accuracy (0):", acc0)
+
         grbmodel = initgrbmodel.copy()
         grbmodel.setParam("MIPGap", args.gap)
         grbmodel.setAttr(GRB.Attr.Start, grbmodel.getVars(), prediction)
@@ -191,7 +202,7 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
         
         mvbsolver.registerModel(initgrbmodel, solver=solver)
         mvbsolver.registerVars(list(range(n)))
-        mvbsolver.setParam(threshold=args.fixthresh,tmvb=[args.fixthresh, 0.9],pSuccessLow = [args.psucceed_low],pSuccessUp = [args.psucceed_up])
+        mvbsolver.setParam(threshold=args.fixthresh,tmvb=[args.fixthresh, 0.9999999999999],pSuccessLow = [args.psucceed_low],pSuccessUp = [args.psucceed_up])
         mvb_model = mvbsolver.getMultiVarBranch(Xpred=probs[:,1],upCut=args.upCut,lowCut=args.lowCut,normalize=args.normalize)
         mvb_model.setParam("MIPGap", args.gap/2)
         TOriginalArray[0] = 0
@@ -208,8 +219,16 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
             mvbObjVal = mvb_model.getAttr("ObjVal")
         except:
             mvbObjVal = np.nan
+        
+        if ModelSense == 1:
+            isopt = (mvbObjVal <= originalObjVal)
+        elif ModelSense == -1:
+            isopt = (mvbObjVal >= originalObjVal)
+
         if TOriginalArray[1]:
             TimeDominance = TOriginalArray[3]
+        elif isopt:
+            TimeDominance = mvb_time
         else:
             TimeDominance = args.maxtime
 
@@ -221,6 +240,9 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
             'instance_name': instance_name,
             'rows': m,
             'cols': n,
+            "acc": acc,
+            "acc1": acc1,
+            "acc0": acc0,
             'ori_time': ori_time,
             'ori_warm_time': ori_warm_time,
             'mvb_time': mvb_time,
@@ -273,7 +295,7 @@ def mvb_experiment(instance_path, solver, probs, prediction, args):
         print(">>> Solver not supported")
     
 
-def log_results(prob_name, target_dt_name, instance_name, experiment_name, results):
+def log_results(prob_name, target_dt_name, experiment_name, results):
 
     results_path = PROJECT_DIR.joinpath('results',prob_name,target_dt_name, f'{experiment_name}.csv')
     print(results_path)
@@ -290,12 +312,12 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--maxtime", type=float, default=3600.0)
 parser.add_argument("--fixthresh", type=float, default=1.1)
-parser.add_argument("--psucceed_low", type=float, default=1-1e-7)
-parser.add_argument("--psucceed_up", type=float, default=0.99999)
+parser.add_argument("--psucceed_low", type=float, default=0.99)
+parser.add_argument("--psucceed_up", type=float, default=0.999)
 parser.add_argument("--gap", type=float, default=0.01)
 parser.add_argument("--heuristics", type=float, default=0.05)
 parser.add_argument("--solver", type=str, default='gurobi')
-parser.add_argument("--prob_name", type=str, default='indset')
+parser.add_argument("--prob_name", type=str, default='fcmnf')
 parser.add_argument("--robust", type=int, default=0)
 parser.add_argument("--upCut", type=int, default=0)
 parser.add_argument("--lowCut", type=int, default=1)
@@ -320,8 +342,8 @@ for target_dt_name in target_dt_names_lst:
             model, model_name = get_model(config, data)
             probs, prediction = get_probs(config, model, data)
             instance_path = get_instance_path(prob_name, target_dt_name, instance_name)
-            results = mvb_experiment(instance_path, solver, probs, prediction, args)
-            log_results(prob_name, target_dt_name, instance_name, experiment_name, results)
+            results = mvb_experiment(instance_path, instance_name, solver, probs, prediction, args)
+            log_results(prob_name, target_dt_name, experiment_name, results)
         except Exception as e:
             print(f"Error in {instance_name}: {e}")
             continue
