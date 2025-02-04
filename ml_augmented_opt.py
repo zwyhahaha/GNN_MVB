@@ -34,9 +34,9 @@ def load_model(config, model_dir, data=None):
         var_feature_size, con_feature_size = 5, 5
 
     model_name, model, criterion, _, _ = get_model(model_dir, var_feature_size, con_feature_size, n_batches=1, **config)
-    state = torch.load(str(model_dir.joinpath(model_name+".pt")))
-    model.load_state_dict(state)       
     model.to(DEVICE)
+    state = torch.load(str(model_dir.joinpath(model_name+".pt")), map_location=DEVICE)
+    model.load_state_dict(state)
 
     return model_name, model, criterion
 
@@ -74,7 +74,7 @@ def get_prediction(config, model, data):
     model.eval()
 
     with torch.no_grad():
-        output = model(data.to(DEVICE))
+        output = model(data) # .to(DEVICE)
 
     binary_mask = to_numpy(data.is_binary).squeeze()
     binary_idx = np.arange(binary_mask.shape[0])[binary_mask]
@@ -568,7 +568,7 @@ def experiment_opt_with_gnn(args):
         result_df = pd.read_csv(str(result_df_file_path))
         return result_df
     
-    data = torch.load(str(data_path.joinpath(instance_name + "_data.pt")))
+    data = torch.load(str(data_path.joinpath(instance_name + "_data.pt")), map_location=DEVICE)
     instance_name = data.instance_name
 
     print(">>> Reading:", instance_name)

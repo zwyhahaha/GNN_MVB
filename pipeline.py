@@ -3,7 +3,7 @@ from utils import get_trained_model_config
 from mvb_experiments.MVB import *
 from mvb_experiments.mkp.result.mkpUtils import *
 from gurobipy import *
-import coptpy as cp 
+import coptpy as cp
 from coptpy import COPT
 import numpy as np
 
@@ -12,7 +12,7 @@ TMVBWarmarray = [0, 0]
 TOriginalArray = [0, 0, 0, 0]
 
 def get_config(prob_name):
-    config = get_trained_model_config(prob_name, 2)
+    config = get_trained_model_config(prob_name, 0)
     return config
 
 def get_instance_names(prob_name, target_dt_name):
@@ -23,8 +23,8 @@ def get_instance_names(prob_name, target_dt_name):
     return instance_names
 
 def get_data(prob_name, target_dt_name, instance_name):
-    data_path = DATA_DIR.joinpath('graphs', prob_name, target_dt_name, 'processed')  
-    data = torch.load(str(data_path.joinpath(instance_name + "_data.pt")))
+    data_path = DATA_DIR.joinpath('graphs', prob_name, target_dt_name, 'processed')
+    data = torch.load(str(data_path.joinpath(instance_name + "_data.pt")),map_location=DEVICE)
     instance_name = data.instance_name
     print(">>> Reading:", instance_name)
     return data
@@ -37,12 +37,6 @@ def get_model(config, data):
 def get_probs(config, model, data):
     probs, prediction, _, _, _, _ = get_prediction(config, model, data)
     return probs, prediction
-
-def normalize_probs(probs):
-    a_normalized = np.log(probs + 1e-30)
-    a_normalized -= np.min(a_normalized)
-    a_normalized /= np.max(a_normalized)
-    return a_normalized
 
 def get_instance_path(prob_name, target_dt_name, instance_name):
     instance_type = INSTANCE_FILE_TYPES[prob_name]
@@ -122,7 +116,6 @@ def computeObjLoss(mvbObj, originalObj, ModelSense = -1):
         return (mvbObj - originalObj) / originalObj * 100
 
 def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args):
-    # instance_name = instance_path.split('/')[-1].split('.')[0]
     if solver == 'copt':
         env = cp.Envr()
         cp_model = env.createModel("lp")
@@ -186,10 +179,10 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
         grbmodel.setAttr(GRB.Attr.Start, grbmodel.getVars(), prediction)
         TMVBWarmarray[0] = 0
         if ModelSense == 1:
-            TMVBWarmarray[1] = np.Inf # obj
+            TMVBWarmarray[1] = np.Inf
             grbmodel.optimize(whenIsBestMinWarmObjFound)
         elif ModelSense == -1:
-            TMVBWarmarray[1] = -np.Inf # obj
+            TMVBWarmarray[1] = -np.Inf
             grbmodel.optimize(whenIsBestMaxWarmObjFound)
         originalgap_warm = grbmodel.getAttr("MIPGap")
         ori_warm_time = grbmodel.getAttr("RunTime")
@@ -240,9 +233,9 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
             'instance_name': instance_name,
             'rows': m,
             'cols': n,
-            "acc": acc,
-            "acc1": acc1,
-            "acc0": acc0,
+            'acc': acc,
+            'acc1': acc1,
+            'acc0': acc0,
             'ori_time': ori_time,
             'ori_warm_time': ori_warm_time,
             'mvb_time': mvb_time,
@@ -317,7 +310,7 @@ parser.add_argument("--psucceed_up", type=float, default=0.999)
 parser.add_argument("--gap", type=float, default=0.01)
 parser.add_argument("--heuristics", type=float, default=0.05)
 parser.add_argument("--solver", type=str, default='gurobi')
-parser.add_argument("--prob_name", type=str, default='fcmnf')
+parser.add_argument("--prob_name", type=str, default='indset')
 parser.add_argument("--robust", type=int, default=0)
 parser.add_argument("--upCut", type=int, default=0)
 parser.add_argument("--lowCut", type=int, default=1)
@@ -330,13 +323,11 @@ config = get_config(prob_name)
 # target_dt_names_lst = TARGET_DT_NAMES[prob_name]
 target_dt_names_lst = [VAL_DT_NAMES[prob_name]]
 # target_dt_names_lst = [TRAIN_DT_NAMES[prob_name]]
-# target_dt_names_lst = ['transfer']
 experiment_name = f"{solver}_robust_{args.robust}_plow_{args.psucceed_low * args.lowCut}_pup_{args.psucceed_up * args.upCut}_gap_{args.gap}_normalize_{args.normalize}_heuristics_{args.heuristics}"
 
 for target_dt_name in target_dt_names_lst:
     instance_names = get_instance_names(prob_name, target_dt_name)
     for instance_name in instance_names:
-        # instance_name = 'instance_183'
         try:
             data = get_data(prob_name, target_dt_name, instance_name)
             model, model_name = get_model(config, data)

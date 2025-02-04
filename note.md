@@ -169,3 +169,7 @@ val_u_mean: 0.13467924 val_confident_ratio_mean: 0.44688 val_confident_acc_mean:
 - 734 variables are involved in the MVB within interval [0.999999, 1.1)
 Get MVB bounds...
 0 0.0 411 11.934896128858549
+
+## 0204 record
+1. use higher threshold, fix lesser vars
+2. data-free: use solution of LP relxation as prediction

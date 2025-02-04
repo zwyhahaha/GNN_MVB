@@ -239,7 +239,7 @@ class MIPGNN(BaseModel):
 
         num_var = torch.sum(num_var_nodes)
         num_con = torch.sum(num_con_nodes)
- 
+
         for i in range(self.num_layers):
             X_err = self.layers_err[i](X_var_lst[-1], edge_index_var, edge_features_var, rhs, lb, ub, con_index, con_kind, con_degree, batch_idx_tuple, (num_var, num_con))
             X_con = self.layers_var[i](X_var_lst[-1], X_con, edge_index_var, edge_features_var, batch_idx_tuple, (num_var, num_con))

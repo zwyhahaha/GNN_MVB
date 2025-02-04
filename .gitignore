@@ -10,3 +10,4 @@ mvb_experiments/mkp/result/__pycache__
 results/
 run.sh
 .vscode
+.DS_Store
