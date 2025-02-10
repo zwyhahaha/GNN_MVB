@@ -19,3 +19,5 @@ python pipeline.py --prob_name fcmnf --psucceed_low 0.99999999999999 --normalize
 # python data_generation.py --prob_name cauctions --dt_types val
 # python data_generation.py --prob_name fcmnf --dt_types target
 # python data_generation.py --prob_name gisp --dt_types target
+
+python pipeline.py --prob_name cauctions --psucceed_low 0.999 --ratio_low 0.1 --ratio_up 0.0 --gap 0.01 --heuristics 0.01 --robust 0 --upCut 0  --lowCut 1 --ratio_involve 1

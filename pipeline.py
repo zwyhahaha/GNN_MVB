@@ -36,7 +36,24 @@ def get_model(config, data):
 
 def get_probs(config, model, data):
     probs, prediction, _, _, _, _ = get_prediction(config, model, data)
-    return probs, prediction
+    return probs[:,1], prediction
+
+def get_probs_from_lp(instance_path, solver):
+    if solver == 'gurobi':
+        initgrbmodel = read(instance_path)
+        for v in initgrbmodel.getVars():
+            if v.VType == GRB.BINARY:
+                    v.VType = GRB.CONTINUOUS
+                    v.LB = 0
+                    v.UB = 1
+        initgrbmodel.optimize()
+        sol = initgrbmodel.getVars()
+        probs = np.array([v.x for v in sol])
+        prediction = np.zeros(len(probs))
+        prediction[probs >= 0.5] = 1
+        return probs, prediction
+    else:
+        print(">>> Solver not supported")
 
 def get_instance_path(prob_name, target_dt_name, instance_name):
     instance_type = INSTANCE_FILE_TYPES[prob_name]
@@ -96,7 +113,7 @@ def whenIsMVBMinObjFound(model, where, time=TOriginalArray):
         if objbst <= time[2] and time[1] == 0:
             time[1] = 1
             time[3] = model.cbGet(GRB.Callback.RUNTIME)
-            # model.terminate()
+            model.terminate()
 
 def whenIsMVBMaxObjFound(model, where, time=TOriginalArray):
     if where == GRB.Callback.MIPSOL:
@@ -107,7 +124,7 @@ def whenIsMVBMaxObjFound(model, where, time=TOriginalArray):
         if objbst >= time[2] and time[1] == 0:
             time[1] = 1
             time[3] = model.cbGet(GRB.Callback.RUNTIME)
-            # model.terminate()
+            model.terminate()
 
 def computeObjLoss(mvbObj, originalObj, ModelSense = -1):
     if ModelSense == -1:
@@ -137,7 +154,7 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
         mvbsolver = MVB(m, n)
         mvbsolver.registerModel(initcpmodel, solver=solver)
         mvbsolver.registerVars(list(range(n)))
-        mvb_model = mvbsolver.getMultiVarBranch(Xpred=probs[:,1])
+        mvb_model = mvbsolver.getMultiVarBranch(Xpred=probs)
         mvb_model.solve()
         mvb_time = mvb_model.getAttr("SolvingTime")
 
@@ -195,8 +212,8 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
         
         mvbsolver.registerModel(initgrbmodel, solver=solver)
         mvbsolver.registerVars(list(range(n)))
-        mvbsolver.setParam(threshold=args.fixthresh,tmvb=[args.fixthresh, 0.9999999999999],pSuccessLow = [args.psucceed_low],pSuccessUp = [args.psucceed_up])
-        mvb_model = mvbsolver.getMultiVarBranch(Xpred=probs[:,1],upCut=args.upCut,lowCut=args.lowCut,normalize=args.normalize)
+        mvbsolver.setParam(threshold=args.fixthresh,tmvb=[args.fixthresh, args.tmvb],pSuccessLow = [args.psucceed_low],pSuccessUp = [args.psucceed_up])
+        mvb_model = mvbsolver.getMultiVarBranch(Xpred=probs,upCut=args.upCut,lowCut=args.lowCut,ratio_involve=args.ratio_involve,ratio=[args.ratio_low,args.ratio_up])
         mvb_model.setParam("MIPGap", args.gap/2)
         TOriginalArray[0] = 0
         TOriginalArray[1] = 0
@@ -248,7 +265,7 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
 
         if args.robust:
             isGeq = 1 if ModelSense == -1 else 0
-            model_list = mvbsolver.get_model_list(Xpred=probs[:,1],obj=mvbObjVal,isGeq=isGeq,
+            model_list = mvbsolver.get_model_list(Xpred=probs,obj=mvbObjVal,isGeq=isGeq,
                                                   upCut=args.upCut,lowCut=args.lowCut,gap=0)
             model_names = ["cl", "uc", "cc"]
             times = []
@@ -305,16 +322,20 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--maxtime", type=float, default=3600.0)
 parser.add_argument("--fixthresh", type=float, default=1.1)
+parser.add_argument("--tmvb", type=float, default=0.9999)
 parser.add_argument("--psucceed_low", type=float, default=0.99)
 parser.add_argument("--psucceed_up", type=float, default=0.999)
+parser.add_argument("--ratio_low", type=float, default=0.6)
+parser.add_argument("--ratio_up", type=float, default=0.1)
 parser.add_argument("--gap", type=float, default=0.01)
-parser.add_argument("--heuristics", type=float, default=0.05)
+parser.add_argument("--heuristics", type=float, default=1.0)
 parser.add_argument("--solver", type=str, default='gurobi')
-parser.add_argument("--prob_name", type=str, default='indset')
+parser.add_argument("--prob_name", type=str, default='cauctions')
 parser.add_argument("--robust", type=int, default=0)
-parser.add_argument("--upCut", type=int, default=0)
+parser.add_argument("--upCut", type=int, default=1)
 parser.add_argument("--lowCut", type=int, default=1)
-parser.add_argument("--normalize", type=int, default=0)
+parser.add_argument("--ratio_involve", type=int, default=1)
+parser.add_argument("--data_free", type=int, default=1)
 
 args = parser.parse_args()
 solver = args.solver
@@ -323,16 +344,26 @@ config = get_config(prob_name)
 # target_dt_names_lst = TARGET_DT_NAMES[prob_name]
 target_dt_names_lst = [VAL_DT_NAMES[prob_name]]
 # target_dt_names_lst = [TRAIN_DT_NAMES[prob_name]]
-experiment_name = f"{solver}_robust_{args.robust}_plow_{args.psucceed_low * args.lowCut}_pup_{args.psucceed_up * args.upCut}_gap_{args.gap}_normalize_{args.normalize}_heuristics_{args.heuristics}"
+# target_dt_names_lst = ['transfer_400_2000']
 
+if args.ratio_involve:
+    experiment_name = f"{solver}_robust_{args.robust}_ratio_{args.ratio_low}_plow_{args.psucceed_low * args.lowCut}_pup_{args.psucceed_up * args.upCut}_gap_{args.gap}_heuristics_{args.heuristics}"
+else:
+    experiment_name = f"{solver}_robust_{args.robust}_tmvb_{args.tmvb}_plow_{args.psucceed_low * args.lowCut}_pup_{args.psucceed_up * args.upCut}_gap_{args.gap}_heuristics_{args.heuristics}"
+
+# 'instance_121', instance_131
 for target_dt_name in target_dt_names_lst:
     instance_names = get_instance_names(prob_name, target_dt_name)
     for instance_name in instance_names:
+        # instance_name = 'instance_121'
         try:
             data = get_data(prob_name, target_dt_name, instance_name)
             model, model_name = get_model(config, data)
-            probs, prediction = get_probs(config, model, data)
             instance_path = get_instance_path(prob_name, target_dt_name, instance_name)
+            if args.data_free:
+                probs, prediction = get_probs_from_lp(instance_path, solver)
+            else:
+                probs, prediction = get_probs(config, model, data)
             results = mvb_experiment(instance_path, instance_name, solver, probs, prediction, args)
             log_results(prob_name, target_dt_name, experiment_name, results)
         except Exception as e:

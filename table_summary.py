@@ -20,9 +20,22 @@ def calculate_shifted_geometric_mean(csv_file, selected_columns, shift=1):
             print(f"Column {column} not found in the CSV file.")
     return result
 
+def calculate_mean(csv_file, selected_columns):
+    df = pd.read_csv(csv_file)
+    df = df[df['TimeDominance'] != 3600]
+    result = {}
+    for column in selected_columns:
+        if column in df.columns:
+            result[column] = df[column].mean()
+        else:
+            print(f"Column {column} not found in the CSV file.")
+    return result
+
 csv_files = {
     'setcover': 'results/setcover/valid_500r_1000c_0.05d/gurobi_robust_0_plow_0.99_pup_0.0_gap_0.01_normalize_0_heuristics_0.05.csv',
-    'cauctions': 'results/cauctions/valid_200_1000/gurobi_robust_0_plow_0.99999999999999_pup_0.0_gap_0.01_normalize_0_heuristics_0.05.csv',
+    # 'cauctions': 'results/cauctions/valid_200_1000/gurobi_robust_0_plow_0.99999999999999_pup_0.0_gap_0.01_normalize_0_heuristics_0.05.csv',
+    # 'cauctions': 'results/cauctions/valid_200_1000/gurobi_robust_0_plow_0.999_pup_0.0_gap_0.01_heuristics_0.01.csv',
+    'cauctions': 'results/cauctions/valid_200_1000/gurobi_robust_0_ratio_0.6_plow_0.99_pup_0.999_gap_0.01_heuristics_1.0.csv',
     'indset': 'results/indset/valid_1000_4/gurobi_robust_0_plow_0.9_pup_0.9_gap_0.01_normalize_0_heuristics_0.05.csv',
     'fcmnf': 'results/fcmnf/valid/gurobi_robust_0_plow_0.9999999999_pup_0.0_gap_0.01_normalize_0_heuristics_0.05.csv',
     'gisp': 'results/gisp/valid/gurobi_robust_0_plow_0.99999_pup_0.0_gap_0.01_normalize_0_heuristics_0.05.csv'
@@ -38,11 +51,11 @@ with open(output_file, mode='w', newline='') as file:
     writer.writerow(['Dataset'] + selected_columns)
 
     for dataset in datasets:
-        print(f"Dataset: {dataset}")
         csv_file = csv_files[dataset]        
         result = calculate_shifted_geometric_mean(csv_file, selected_columns, shift)
-        row = [dataset] + [result.get(column, 'N/A') for column in selected_columns]
+        result_mean = calculate_mean(csv_file, selected_columns)
+        row = [dataset] + [result.get(column, 'N/A') for column in selected_columns] + [result_mean.get(column, 'N/A') for column in selected_columns]
         writer.writerow(row)
-        print(f"Row for {dataset}: {row}")
+        print(f"{row}")
 
 print(f"Results have been written to {output_file}")

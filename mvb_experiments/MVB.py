@@ -164,7 +164,7 @@ class MVB(object):
     #     pSuccess = Xpred[index_at_ratio]
     #     return pSuccess
 
-    def getMultiVarBranch(self, warm=False, Xpred=None, upCut=True, lowCut=True, normalize=False):
+    def getMultiVarBranch(self, warm=False, Xpred=None, upCut=True, lowCut=True, ratio_involve=False, ratio=None):
 
         """
         Implement the MVB framework to solve the embedded model
@@ -187,8 +187,11 @@ class MVB(object):
         self._fixVars(fixLowIdx, isUpper=False)
 
         for i in range(self._nRegion):
-            if normalize:
-                (mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb) = self._getMVBIdxWithNormalization(Xpred, self._tmvb[i + 1], self._tmvb[i])
+            if ratio_involve:
+                assert ratio is not None
+                nLow = int(len(Xpred) * ratio[0])
+                nUp = int(len(Xpred) * ratio[1])
+                (mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb) = self._getMVBIdxFromCardinality(Xpred, nLow, nUp)
             else:
                 (mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb) = self._getMVBIdx(Xpred, self._tmvb[i + 1], self._tmvb[i])
             (ksiUp, ksiLow) = self._getHoeffdingBound(mvbUpProb, mvbLowProb, self._pSuccessLow[i], self._pSuccessUp[i])
@@ -208,10 +211,7 @@ class MVB(object):
                 start[mvbLowIdx] = 0.0
                 self._setWarmStart(start)
 
-            print("- {0} variables are involved in the MVB within interval [{1}, {2})".format(len(mvbUpIdx) +
-                                                                                              len(mvbLowIdx),
-                                                                                              self._tmvb[i + 1],
-                                                                                              self._tmvb[i]))
+            print("- {0} variables are involved in the MVB".format(len(mvbUpIdx) + len(mvbLowIdx)))
 
         print("MVB model is generated")
 
@@ -349,6 +349,28 @@ class MVB(object):
         mvbUpIdx = np.where((Xpred >= tLow) & (Xpred < tUp))[0]
         mvbUpProb = Xpred[mvbUpIdx]
         mvbLowIdx = np.where((Xpred <= 1 - tLow) & (Xpred > 1 - tUp))[0]
+        mvbLowProb = Xpred[mvbLowIdx]
+
+        return mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb
+    
+    @staticmethod
+    def _getMVBIdxFromCardinality(Xpred, nLow, nUp):
+
+        """
+        Get MVB indices
+
+        """
+        sorted_indices = np.argsort(Xpred)
+        if nUp == 0:
+            mvbUpIdx = np.array([]).astype(int)
+        else:
+            mvbUpIdx = sorted_indices[-min(nUp, len(sorted_indices)):]
+        if nLow == 0:
+            mvbLowIdx = np.array([]).astype(int)
+        else:
+            mvbLowIdx = sorted_indices[:min(nLow, len(sorted_indices))]
+        
+        mvbUpProb = Xpred[mvbUpIdx]
         mvbLowProb = Xpred[mvbLowIdx]
 
         return mvbUpIdx, mvbUpProb, mvbLowIdx, mvbLowProb
