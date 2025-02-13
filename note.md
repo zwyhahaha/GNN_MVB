@@ -161,15 +161,24 @@ val_u_mean: 0.13467924 val_confident_ratio_mean: 0.44688 val_confident_acc_mean:
 >>> Prediction accuracy: 0.871
 >>> Prediction accuracy (1): 0.0
 >>> Prediction accuracy (0): 0.9216931216833684
-21 11.417043664575539 906 75.06402983581636
-- 927 variables are involved in the MVB within interval [0.9, 1.1)
-6.850820064544678 6.239526987075806 7.808387994766235 0.0 0.0
-
-0 0.0 734 15.949459287184911
-- 734 variables are involved in the MVB within interval [0.999999, 1.1)
-Get MVB bounds...
-0 0.0 411 11.934896128858549
 
 ## 0204 record
 1. use higher threshold, fix lesser vars
 2. data-free: use solution of LP relxation as prediction
+
+## 0211 record
+1. prediction acc is improved
+2. sometimes warm-start would be very slow, and this is not caused by MIPGap
+3. the probs from lp relaxation has many 0, so it can be ineffective to tune tmvb (as 0.999 and 0.99999 pools the same var set)
+4. turn off upCut for cauctions. very likely to be infeasible. (0.99,0.999) infeasible (0.9,0) feasible
+5. ecole: the training acc cannot get improved?
+6. set the params of relax lp: no crossover, use ipm. the prediction result is the same as original. would it better for tmvb?
+7. if use lp relax, no need to compare with warm-start
+8. very few literature use knapsack as benchmark.
+
+## 0213 record
+grbtune for bad instances
+lp relaxation for setcover and idnset
+try mkp dataset
+
+given mkp dataset, can we generate the dataset (including the solution_pools, graphs)

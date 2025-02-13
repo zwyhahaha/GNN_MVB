@@ -10,16 +10,20 @@ import numpy as np
 TMVBarray = [0, 0]
 TMVBWarmarray = [0, 0]
 TOriginalArray = [0, 0, 0, 0]
+sol = [None, 0, 10, 0.0]
 
 def get_config(prob_name):
     config = get_trained_model_config(prob_name, 0)
     return config
 
-def get_instance_names(prob_name, target_dt_name):
+def get_instance_names(prob_name, target_dt_name, sample):
     instances_dir = DATA_DIR.joinpath('graphs', prob_name, target_dt_name, 'processed')
-    instance_type = INSTANCE_FILE_TYPES[prob_name]
+    # instance_type = INSTANCE_FILE_TYPES[prob_name]
     instance_type = '.pt'
     instance_names = [f.stem.replace('_data', '') for f in instances_dir.glob(f'*{instance_type}')]
+    if sample:
+        random.seed(42)
+        instance_names = random.sample(instance_names, 20)
     return instance_names
 
 def get_data(prob_name, target_dt_name, instance_name):
@@ -41,19 +45,47 @@ def get_probs(config, model, data):
 def get_probs_from_lp(instance_path, solver):
     if solver == 'gurobi':
         initgrbmodel = read(instance_path)
-        for v in initgrbmodel.getVars():
-            if v.VType == GRB.BINARY:
-                    v.VType = GRB.CONTINUOUS
-                    v.LB = 0
-                    v.UB = 1
-        initgrbmodel.optimize()
-        sol = initgrbmodel.getVars()
+        relaxgrbmodel = initgrbmodel.relax()
+        relaxgrbmodel.setParam("CrossOver", 0)
+        relaxgrbmodel.setParam("Method", 2)
+        relaxgrbmodel.optimize()
+        sol = relaxgrbmodel.getVars()
         probs = np.array([v.x for v in sol])
+        # sol = get_grb_root_relaxation(initgrbmodel)
+        # probs = np.array(sol)
         prediction = np.zeros(len(probs))
         prediction[probs >= 0.5] = 1
         return probs, prediction
     else:
         print(">>> Solver not supported")
+
+def grb_callback(model: Model, where, x=sol):
+    if where != GRB.Callback.MIPNODE:
+        return
+
+    if model.cbGet(GRB.Callback.MIPNODE_NODCNT) > 0:
+        print("Root node completed, terminate now")
+        model.terminate()
+        return
+
+    if model.cbGet(GRB.Callback.MIPNODE_STATUS) == GRB.Status.OPTIMAL:
+        x[0] = model.cbGetNodeRel(model.getVars())
+        sol[1] = sol[1] + 1
+        print("Root solution count %d" % sol[1])
+
+        if sol[1] >= sol[2]:
+            model.terminate()
+            sol[3] = model.getAttr(GRB.Attr.Runtime)
+            return
+    return
+
+def get_grb_root_relaxation(model: Model):
+    model.setParam(GRB.Param.Heuristics, 0)
+    model.setParam(GRB.Param.Cuts, 3)
+    model.optimize(grb_callback)
+    root_sol = sol[0]
+
+    return root_sol
 
 def get_instance_path(prob_name, target_dt_name, instance_name):
     instance_type = INSTANCE_FILE_TYPES[prob_name]
@@ -191,25 +223,29 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
         acc0 = (sol[~idx]==prediction[~idx]).sum() / (len(sol[~idx])+1e-8)
         print(">>> Prediction accuracy (0):", acc0)
 
-        grbmodel = initgrbmodel.copy()
-        grbmodel.setParam("MIPGap", args.gap)
-        grbmodel.setAttr(GRB.Attr.Start, grbmodel.getVars(), prediction)
-        TMVBWarmarray[0] = 0
-        if ModelSense == 1:
-            TMVBWarmarray[1] = np.Inf
-            grbmodel.optimize(whenIsBestMinWarmObjFound)
-        elif ModelSense == -1:
-            TMVBWarmarray[1] = -np.Inf
-            grbmodel.optimize(whenIsBestMaxWarmObjFound)
-        originalgap_warm = grbmodel.getAttr("MIPGap")
-        ori_warm_time = grbmodel.getAttr("RunTime")
-        originalObjVal_warm = grbmodel.getAttr("ObjVal")
-        ori_warm_best_time = TMVBWarmarray[0]
+        if args.data_free:
+            ori_warm_time = 0
+            originalObjVal_warm = -ModelSense * np.Inf
+            ori_warm_best_time = 0
+        else:
+            grbmodel = initgrbmodel.copy()
+            grbmodel.setParam("MIPGap", args.gap)
+            grbmodel.setAttr(GRB.Attr.Start, grbmodel.getVars(), prediction)
+            TMVBWarmarray[0] = 0
+            if ModelSense == 1:
+                TMVBWarmarray[1] = np.Inf
+                grbmodel.optimize(whenIsBestMinWarmObjFound)
+            elif ModelSense == -1:
+                TMVBWarmarray[1] = -np.Inf
+                grbmodel.optimize(whenIsBestMaxWarmObjFound)
+            originalgap_warm = grbmodel.getAttr("MIPGap")
+            ori_warm_time = grbmodel.getAttr("RunTime")
+            originalObjVal_warm = grbmodel.getAttr("ObjVal")
+            ori_warm_best_time = TMVBWarmarray[0]
 
         m=grbmodel.getAttr("NumConstrs")
         n=grbmodel.getAttr("NumVars")
         mvbsolver = MVB(m, n)
-        
         mvbsolver.registerModel(initgrbmodel, solver=solver)
         mvbsolver.registerVars(list(range(n)))
         mvbsolver.setParam(threshold=args.fixthresh,tmvb=[args.fixthresh, args.tmvb],pSuccessLow = [args.psucceed_low],pSuccessUp = [args.psucceed_up])
@@ -243,7 +279,7 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
             TimeDominance = args.maxtime
 
         objLoss = computeObjLoss(mvbObjVal, originalObjVal, ModelSense)
-        objLoss_warm = computeObjLoss(mvbObjVal, originalObjVal_warm, ModelSense)
+        objLoss_warm = computeObjLoss(mvbObjVal, originalObjVal_warm, ModelSense) if not args.data_free else np.nan
         print(ori_best_time, ori_warm_best_time, TimeDominance, objLoss, objLoss_warm)
 
         results = {
@@ -319,23 +355,25 @@ def log_results(prob_name, target_dt_name, experiment_name, results):
         results_df.to_csv(results_path, index=False)
 
 import argparse
+import random
 parser = argparse.ArgumentParser()
 parser.add_argument("--maxtime", type=float, default=3600.0)
 parser.add_argument("--fixthresh", type=float, default=1.1)
 parser.add_argument("--tmvb", type=float, default=0.9999)
-parser.add_argument("--psucceed_low", type=float, default=0.99)
-parser.add_argument("--psucceed_up", type=float, default=0.999)
+parser.add_argument("--psucceed_low", type=float, default=0.9)
+parser.add_argument("--psucceed_up", type=float, default=0.99)
 parser.add_argument("--ratio_low", type=float, default=0.6)
 parser.add_argument("--ratio_up", type=float, default=0.1)
 parser.add_argument("--gap", type=float, default=0.01)
 parser.add_argument("--heuristics", type=float, default=1.0)
 parser.add_argument("--solver", type=str, default='gurobi')
-parser.add_argument("--prob_name", type=str, default='cauctions')
+parser.add_argument("--prob_name", type=str, default='gisp')
 parser.add_argument("--robust", type=int, default=0)
-parser.add_argument("--upCut", type=int, default=1)
+parser.add_argument("--upCut", type=int, default=0)
 parser.add_argument("--lowCut", type=int, default=1)
 parser.add_argument("--ratio_involve", type=int, default=1)
 parser.add_argument("--data_free", type=int, default=1)
+parser.add_argument("--sample", type=int, default=1)
 
 args = parser.parse_args()
 solver = args.solver
@@ -347,15 +385,14 @@ target_dt_names_lst = [VAL_DT_NAMES[prob_name]]
 # target_dt_names_lst = ['transfer_400_2000']
 
 if args.ratio_involve:
-    experiment_name = f"{solver}_robust_{args.robust}_ratio_{args.ratio_low}_plow_{args.psucceed_low * args.lowCut}_pup_{args.psucceed_up * args.upCut}_gap_{args.gap}_heuristics_{args.heuristics}"
+    experiment_name = f"{solver}_{args.sample}_robust_{args.robust}_df_{args.data_free}_ratio_{args.ratio_low}_plow_{args.psucceed_low * args.lowCut}_pup_{args.psucceed_up * args.upCut}_gap_{args.gap}_heuristics_{args.heuristics}"
 else:
-    experiment_name = f"{solver}_robust_{args.robust}_tmvb_{args.tmvb}_plow_{args.psucceed_low * args.lowCut}_pup_{args.psucceed_up * args.upCut}_gap_{args.gap}_heuristics_{args.heuristics}"
+    experiment_name = f"{solver}_{args.sample}_robust_{args.robust}_df_{args.data_free}_tmvb_{args.tmvb}_plow_{args.psucceed_low * args.lowCut}_pup_{args.psucceed_up * args.upCut}_gap_{args.gap}_heuristics_{args.heuristics}"
 
-# 'instance_121', instance_131
 for target_dt_name in target_dt_names_lst:
-    instance_names = get_instance_names(prob_name, target_dt_name)
+    instance_names = get_instance_names(prob_name, target_dt_name, args.sample)
+    # instance_names = ['instance_95','instance_153','instance_85']
     for instance_name in instance_names:
-        # instance_name = 'instance_121'
         try:
             data = get_data(prob_name, target_dt_name, instance_name)
             model, model_name = get_model(config, data)
