@@ -46,6 +46,9 @@ def get_probs_from_lp(instance_path, solver):
     if solver == 'gurobi':
         initgrbmodel = read(instance_path)
         relaxgrbmodel = initgrbmodel.relax()
+        # for v in relaxgrbmodel.getVars():
+            # v.obj *= np.random.uniform(0.9, 1.2)
+            # v.obj += np.random.normal(0,0.5)
         relaxgrbmodel.setParam("CrossOver", 0)
         relaxgrbmodel.setParam("Method", 2)
         relaxgrbmodel.optimize()
@@ -360,18 +363,18 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--maxtime", type=float, default=3600.0)
 parser.add_argument("--fixthresh", type=float, default=1.1)
 parser.add_argument("--tmvb", type=float, default=0.9999)
-parser.add_argument("--psucceed_low", type=float, default=0.9)
-parser.add_argument("--psucceed_up", type=float, default=0.99)
-parser.add_argument("--ratio_low", type=float, default=0.6)
+parser.add_argument("--psucceed_low", type=float, default=0.999)
+parser.add_argument("--psucceed_up", type=float, default=0.999)
+parser.add_argument("--ratio_low", type=float, default=0.4)
 parser.add_argument("--ratio_up", type=float, default=0.1)
 parser.add_argument("--gap", type=float, default=0.01)
 parser.add_argument("--heuristics", type=float, default=1.0)
 parser.add_argument("--solver", type=str, default='gurobi')
-parser.add_argument("--prob_name", type=str, default='gisp')
+parser.add_argument("--prob_name", type=str, default='indset')
 parser.add_argument("--robust", type=int, default=0)
-parser.add_argument("--upCut", type=int, default=0)
+parser.add_argument("--upCut", type=int, default=1)
 parser.add_argument("--lowCut", type=int, default=1)
-parser.add_argument("--ratio_involve", type=int, default=1)
+parser.add_argument("--ratio_involve", type=int, default=0)
 parser.add_argument("--data_free", type=int, default=1)
 parser.add_argument("--sample", type=int, default=1)
 
@@ -391,7 +394,7 @@ else:
 
 for target_dt_name in target_dt_names_lst:
     instance_names = get_instance_names(prob_name, target_dt_name, args.sample)
-    # instance_names = ['instance_95','instance_153','instance_85']
+    # instance_names = ["C125.9.clq_SET2_0.75_100_1289303909"]
     for instance_name in instance_names:
         try:
             data = get_data(prob_name, target_dt_name, instance_name)

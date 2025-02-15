@@ -82,7 +82,7 @@ def get_prediction(config, model, data):
     uncertainty, evidence = get_uncertainty(output, 2, config['evidence_func'])
     
     probs = torch.softmax(output, axis=1)
-    prediction = probs[:,1]
+    prediction = probs[:,1].clone()
     #prediction = (data.ub - data.lb) * prediction.view(-1) + data.lb # open it for predictions of integer decision values 
     probs = to_numpy(probs)
     prediction = to_numpy(prediction).squeeze()

@@ -12,3 +12,4 @@ run.sh
 .vscode
 .DS_Store
 __temp_pipreqsnb_folder
+*.log

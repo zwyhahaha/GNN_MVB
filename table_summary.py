@@ -41,8 +41,9 @@ csv_files = {
 }
 
 csv_files = {
+    'indset': 'results/indset/valid_1000_4/gurobi_0_robust_0_df_0_tmvb_0.999_plow_0.99_pup_0.99_gap_0.01_heuristics_1.0.csv',
     'setcover': 'results/setcover/valid_500r_1000c_0.05d/gurobi_robust_0_plow_0.99_pup_0.0_gap_0.01_normalize_0_heuristics_0.05.csv',
-    'indset': 'results/indset/valid_1000_4/gurobi_robust_0_plow_0.9_pup_0.9_gap_0.01_normalize_0_heuristics_0.05.csv',
+    'setcover_df': 'results/setcover/valid_500r_1000c_0.05d/gurobi_0_robust_0_df_1_tmvb_0.9999_plow_0.999_pup_0.999_gap_0.01_heuristics_1.0.csv',
     'fcmnf1': 'results/fcmnf/valid/gurobi_0_robust_0_df_1_ratio_0.1_plow_0.6_pup_0.0_gap_0.01_heuristics_1.0.csv',
     'gisp': 'results/gisp/valid/gurobi_1_robust_0_df_1_ratio_0.4_plow_0.99_pup_0.0_gap_0.05_heuristics_1.0.csv',
 }
