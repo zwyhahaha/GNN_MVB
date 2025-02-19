@@ -418,10 +418,10 @@ class MVB(object):
         pFailUp  = 1 - pSuccessUp
         ksiUp = np.sum(mvbUpProb) - np.sqrt(nUpVars * np.log(1 / np.maximum(pFailUp, 1e-20)) / 2)
         ksiUp = np.maximum(0,np.minimum(ksiUp, nUpVars))
-        # ksiUp=0
+        if pFailUp <= 1e-10:
+            ksiUp = np.minimum(ksiUp, int(nUpVars/5))
         ksiLow = np.sum(mvbLowProb) + np.sqrt(nLowVars * np.log(1 / np.maximum(pFailLow, 1e-20)) / 2)
         ksiLow = np.maximum(ksiLow, 0)
-        # ksiLow=nLowVars
 
         return ksiUp, ksiLow
 

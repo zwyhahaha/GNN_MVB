@@ -182,3 +182,25 @@ lp relaxation for setcover and idnset
 try mkp dataset
 
 given mkp dataset, can we generate the dataset (including the solution_pools, graphs)
+
+## IJOC Experiments
+
+### GNN
+- [ ] indset, valid dataset, need to rerun, and on larger dataset
+- [ ] setcover, valid dataset
+- [ ] 
+
+### braching rule
+- [ ] indset
+- [ ] setcover
+
+### data-free
+- [ ] setcover, valid dataset
+- [ ] cauctions, valid dataset
+- [ ] fcmnf, valid dataset
+
+
+
+Questions
+1. need unified MIPGap?
+2. size of instances?

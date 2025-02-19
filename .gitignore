@@ -13,3 +13,4 @@ run.sh
 *.DS_Store
 __temp_pipreqsnb_folder
 *.log
+IJOC_results/

@@ -46,9 +46,6 @@ def get_probs_from_lp(instance_path, solver):
     if solver == 'gurobi':
         initgrbmodel = read(instance_path)
         relaxgrbmodel = initgrbmodel.relax()
-        # for v in relaxgrbmodel.getVars():
-            # v.obj *= np.random.uniform(0.9, 1.2)
-            # v.obj += np.random.normal(0,0.5)
         relaxgrbmodel.setParam("CrossOver", 0)
         relaxgrbmodel.setParam("Method", 2)
         relaxgrbmodel.optimize()
@@ -199,6 +196,8 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
         initgrbmodel = read(instance_path)
         initgrbmodel.setParam("TimeLimit", args.maxtime)
         initgrbmodel.setParam("Heuristics", args.heuristics)
+        initgrbmodel.setParam("PreSolve", 2)
+        # initgrbmodel.setParam("Threads", cpu_count()/2)
         ModelSense = initgrbmodel.getAttr("ModelSense") # 1: min, -1: max
 
         grbmodel = initgrbmodel.copy()
@@ -363,20 +362,20 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--maxtime", type=float, default=3600.0)
 parser.add_argument("--fixthresh", type=float, default=1.1)
 parser.add_argument("--tmvb", type=float, default=0.9999)
-parser.add_argument("--psucceed_low", type=float, default=0.999)
-parser.add_argument("--psucceed_up", type=float, default=0.999)
-parser.add_argument("--ratio_low", type=float, default=0.4)
-parser.add_argument("--ratio_up", type=float, default=0.1)
-parser.add_argument("--gap", type=float, default=0.01)
+parser.add_argument("--psucceed_low", type=float, default=0.9999)
+parser.add_argument("--psucceed_up", type=float, default=0.99999999999)
+parser.add_argument("--ratio_low", type=float, default=0.8)
+parser.add_argument("--ratio_up", type=float, default=0.0)
+parser.add_argument("--gap", type=float, default=0.001)
 parser.add_argument("--heuristics", type=float, default=1.0)
 parser.add_argument("--solver", type=str, default='gurobi')
-parser.add_argument("--prob_name", type=str, default='indset')
+parser.add_argument("--prob_name", type=str, default='fcmnf')
 parser.add_argument("--robust", type=int, default=0)
 parser.add_argument("--upCut", type=int, default=1)
 parser.add_argument("--lowCut", type=int, default=1)
 parser.add_argument("--ratio_involve", type=int, default=0)
 parser.add_argument("--data_free", type=int, default=1)
-parser.add_argument("--sample", type=int, default=1)
+parser.add_argument("--sample", type=int, default=0)
 
 args = parser.parse_args()
 solver = args.solver
@@ -385,16 +384,22 @@ config = get_config(prob_name)
 # target_dt_names_lst = TARGET_DT_NAMES[prob_name]
 target_dt_names_lst = [VAL_DT_NAMES[prob_name]]
 # target_dt_names_lst = [TRAIN_DT_NAMES[prob_name]]
-# target_dt_names_lst = ['transfer_400_2000']
+# target_dt_names_lst = ['transfer_2000_4']
 
 if args.ratio_involve:
-    experiment_name = f"{solver}_{args.sample}_robust_{args.robust}_df_{args.data_free}_ratio_{args.ratio_low}_plow_{args.psucceed_low * args.lowCut}_pup_{args.psucceed_up * args.upCut}_gap_{args.gap}_heuristics_{args.heuristics}"
+    experiment_name = f"{solver}_{args.sample}_robust_{args.robust}_df_{args.data_free}_ratio_{args.ratio_low}_{args.ratio_up}_plow_{args.psucceed_low * args.lowCut}_pup_{args.psucceed_up * args.upCut}_gap_{args.gap}_heuristics_{args.heuristics}"
 else:
     experiment_name = f"{solver}_{args.sample}_robust_{args.robust}_df_{args.data_free}_tmvb_{args.tmvb}_plow_{args.psucceed_low * args.lowCut}_pup_{args.psucceed_up * args.upCut}_gap_{args.gap}_heuristics_{args.heuristics}"
 
 for target_dt_name in target_dt_names_lst:
     instance_names = get_instance_names(prob_name, target_dt_name, args.sample)
-    # instance_names = ["C125.9.clq_SET2_0.75_100_1289303909"]
+    # instance_names = [
+    #                   "nc25_er_n50_m200_p0.075_vcr11_50_cqr10_100_fvr1000_eu500_1857836235", # 1033188
+    #                   "nc25_er_n50_m200_p0.075_vcr11_50_cqr10_100_fvr1000_eu500_1567376558", # 1084774
+    #                   "nc25_er_n50_m200_p0.075_vcr11_50_cqr10_100_fvr1000_eu500_1928798632", # 1109908
+    #                   "nc25_er_n50_m200_p0.075_vcr11_50_cqr10_100_fvr1000_eu500_1119885080", # 1101351
+    #                   "nc25_er_n50_m200_p0.075_vcr11_50_cqr10_100_fvr1000_eu500_1347751373", # 1011161
+    #                   ]
     for instance_name in instance_names:
         try:
             data = get_data(prob_name, target_dt_name, instance_name)
