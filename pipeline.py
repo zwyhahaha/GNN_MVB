@@ -145,7 +145,7 @@ def whenIsMVBMinObjFound(model, where, time=TOriginalArray):
         if objbst <= time[2] and time[1] == 0:
             time[1] = 1
             time[3] = model.cbGet(GRB.Callback.RUNTIME)
-            model.terminate()
+            # model.terminate()
 
 def whenIsMVBMaxObjFound(model, where, time=TOriginalArray):
     if where == GRB.Callback.MIPSOL:
@@ -156,7 +156,7 @@ def whenIsMVBMaxObjFound(model, where, time=TOriginalArray):
         if objbst >= time[2] and time[1] == 0:
             time[1] = 1
             time[3] = model.cbGet(GRB.Callback.RUNTIME)
-            model.terminate()
+            # model.terminate()
 
 def computeObjLoss(mvbObj, originalObj, ModelSense = -1):
     if ModelSense == -1:
@@ -252,7 +252,9 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
         mvbsolver.registerVars(list(range(n)))
         mvbsolver.setParam(threshold=args.fixthresh,tmvb=[args.fixthresh, args.tmvb],pSuccessLow = [args.psucceed_low],pSuccessUp = [args.psucceed_up])
         mvb_model = mvbsolver.getMultiVarBranch(Xpred=probs,upCut=args.upCut,lowCut=args.lowCut,ratio_involve=args.ratio_involve,ratio=[args.ratio_low,args.ratio_up])
-        mvb_model.setParam("MIPGap", args.gap/2)
+        mvb_model.setParam("MIPGap", args.gap)
+        mvb_model.setParam("MIPFocus", 2)
+        mvb_model.setParam("Cuts", 1)
         TOriginalArray[0] = 0
         TOriginalArray[1] = 0
         TOriginalArray[3] = 0
@@ -304,15 +306,15 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
         if args.robust:
             isGeq = 1 if ModelSense == -1 else 0
             model_list = mvbsolver.get_model_list(Xpred=probs,obj=mvbObjVal,isGeq=isGeq,
-                                                  upCut=args.upCut,lowCut=args.lowCut,gap=0)
+                                                  upCut=args.upCut,lowCut=args.lowCut,gap=args.gap/2)
             model_names = ["cl", "uc", "cc"]
             times = []
             best_obj = mvbObjVal
             for i, model in enumerate(model_list):
-                model.setParam("MIPGap", args.gap/2)
+                model.setParam("MIPGap", args.gap)
                 # model.setParam("Cuts", 3)
                 # model.setParam("Heuristics", 0)
-                model.setParam("MIPFocus", 3)
+                # model.setParam("MIPFocus", 3)
                 model.optimize()
                 time = model.getAttr("RunTime")
                 times.append(time)
@@ -335,7 +337,7 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
             results['objLoss_all'] = objLoss_all
             results['objLoss_warm_all'] = objLoss_warm_all
         
-            print(ori_best_time, ori_warm_best_time, TimeDominance, mvb_time + sum(times), times, objLoss, objLoss_warm, objLoss_all, objLoss_warm_all)
+            print(ori_time, ori_warm_time, mvb_time + sum(times), times, objLoss_all, objLoss_warm_all)
         
         return results
     else:
@@ -361,20 +363,20 @@ import random
 parser = argparse.ArgumentParser()
 parser.add_argument("--maxtime", type=float, default=3600.0)
 parser.add_argument("--fixthresh", type=float, default=1.1)
-parser.add_argument("--tmvb", type=float, default=0.9999)
+parser.add_argument("--tmvb", type=float, default=0.9)
 parser.add_argument("--psucceed_low", type=float, default=0.9999)
-parser.add_argument("--psucceed_up", type=float, default=0.99999999999)
-parser.add_argument("--ratio_low", type=float, default=0.8)
+parser.add_argument("--psucceed_up", type=float, default=0.0)
+parser.add_argument("--ratio_low", type=float, default=0.2)
 parser.add_argument("--ratio_up", type=float, default=0.0)
 parser.add_argument("--gap", type=float, default=0.001)
-parser.add_argument("--heuristics", type=float, default=1.0)
+parser.add_argument("--heuristics", type=float, default=0.05)
 parser.add_argument("--solver", type=str, default='gurobi')
-parser.add_argument("--prob_name", type=str, default='fcmnf')
-parser.add_argument("--robust", type=int, default=0)
-parser.add_argument("--upCut", type=int, default=1)
+parser.add_argument("--prob_name", type=str, default='setcover')
+parser.add_argument("--robust", type=int, default=1)
+parser.add_argument("--upCut", type=int, default=0)
 parser.add_argument("--lowCut", type=int, default=1)
 parser.add_argument("--ratio_involve", type=int, default=0)
-parser.add_argument("--data_free", type=int, default=1)
+parser.add_argument("--data_free", type=int, default=0)
 parser.add_argument("--sample", type=int, default=0)
 
 args = parser.parse_args()
@@ -393,13 +395,6 @@ else:
 
 for target_dt_name in target_dt_names_lst:
     instance_names = get_instance_names(prob_name, target_dt_name, args.sample)
-    # instance_names = [
-    #                   "nc25_er_n50_m200_p0.075_vcr11_50_cqr10_100_fvr1000_eu500_1857836235", # 1033188
-    #                   "nc25_er_n50_m200_p0.075_vcr11_50_cqr10_100_fvr1000_eu500_1567376558", # 1084774
-    #                   "nc25_er_n50_m200_p0.075_vcr11_50_cqr10_100_fvr1000_eu500_1928798632", # 1109908
-    #                   "nc25_er_n50_m200_p0.075_vcr11_50_cqr10_100_fvr1000_eu500_1119885080", # 1101351
-    #                   "nc25_er_n50_m200_p0.075_vcr11_50_cqr10_100_fvr1000_eu500_1347751373", # 1011161
-    #                   ]
     for instance_name in instance_names:
         try:
             data = get_data(prob_name, target_dt_name, instance_name)

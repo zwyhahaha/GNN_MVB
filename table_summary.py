@@ -41,19 +41,16 @@ csv_files = {
 }
 
 csv_files = {
-    'indset': 'results/indset/valid_1000_4/gurobi_0_robust_0_df_0_tmvb_0.999_plow_0.99_pup_0.99_gap_0.01_heuristics_1.0.csv',
-    'setcover': 'results/setcover/valid_500r_1000c_0.05d/gurobi_robust_0_plow_0.99_pup_0.0_gap_0.01_normalize_0_heuristics_0.05.csv',
-    'setcover_df': 'results/setcover/valid_500r_1000c_0.05d/gurobi_0_robust_0_df_1_tmvb_0.9999_plow_0.999_pup_0.999_gap_0.01_heuristics_1.0.csv',
-    'gisp': 'results/gisp/valid/gurobi_1_robust_0_df_1_ratio_0.4_plow_0.99_pup_0.0_gap_0.05_heuristics_1.0.csv',
-    'cauctions': 'results/cauctions/valid_200_1000/gurobi_0_robust_0_df_1_tmvb_0.8_plow_0.9_pup_0.999_gap_0.001_heuristics_1.0.csv',
-    'fcmnf': 'results/fcmnf/valid/gurobi_1_robust_0_df_1_ratio_0.8_plow_0.999_pup_0.99999_gap_0.001_heuristics_1.0.csv',
-    'fcmnf2': 'results/fcmnf/valid/gurobi_0_robust_0_df_1_tmvb_0.9999_plow_0.9999_pup_0.99999999999_gap_0.001_heuristics_1.0.csv',
+    # 'b_setcover': 'results/setcover/valid_500r_1000c_0.05d/gurobi_0_robust_1_df_0_tmvb_0.9_plow_0.9999_pup_0.0_gap_0.001_heuristics_0.05.csv',
+    'setcover': 'results/setcover/valid_500r_1000c_0.05d/gurobi_1_robust_1_df_0_ratio_0.2_0.0_plow_0.9999_pup_0.0_gap_0.001_heuristics_0.05.csv',
+    'cauctions': 'results/cauctions/valid_200_1000/gurobi_0_robust_1_df_0_ratio_0.6_0.0_plow_0.999999999_pup_0.0_gap_0.001_heuristics_0.05.csv',
 }
 
 datasets = csv_files.keys()
 shift = 0
 output_file = f'results/SGM{shift}.csv'
-selected_columns = ['ori_time','ori_warm_time','mvb_time','ori_best_time','ori_warm_best_time','TimeDominance']
+# selected_columns = ['ori_time','ori_warm_time','mvb_time','ori_best_time','ori_warm_best_time','TimeDominance']
+selected_columns = ['ori_time','ori_warm_time','mvb_time_all']
 
 with open(output_file, mode='w', newline='') as file:
     writer = csv.writer(file)

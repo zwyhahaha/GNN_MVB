@@ -241,10 +241,8 @@ class MVB(object):
             if obj is not None:
                 if isGeq:
                     model.addConstr(model.getObjective() >= obj + abs(obj)*gap)
-                    # model.addConstr(model.getObjective() >= obj + 1)
                 else:
                     model.addConstr(model.getObjective() <= obj - abs(obj)*gap)
-                    # model.addConstr(model.getObjective() <= obj - 1)
 
         return model
 
