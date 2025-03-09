@@ -228,8 +228,8 @@ class MVB(object):
 
         if self._solver == self.MVB_SOLVER_GUROBI:
             vars = model.getVars()
-            # if self._fixratio > 0:
-            #     self._fixVars(model, self._fixLowIdx, isUpper=False)
+            if self._fixratio > 0:
+                self._fixVars(model, self._fixLowIdx, isUpper=False)
 
             if upCut and len(up_id) > 0:
                 if up:

@@ -306,7 +306,7 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
         if args.robust:
             isGeq = 1 if ModelSense == -1 else 0
             model_list = mvbsolver.get_model_list(Xpred=probs,obj=mvbObjVal,isGeq=isGeq,
-                                                  upCut=args.upCut,lowCut=args.lowCut,gap=args.gap/2)
+                                                  upCut=args.upCut,lowCut=args.lowCut,gap=0)
             model_names = ["cl", "uc", "cc"]
             times = []
             best_obj = mvbObjVal
@@ -365,20 +365,20 @@ parser.add_argument("--maxtime", type=float, default=3600.0)
 parser.add_argument("--fixthresh", type=float, default=1.1)
 parser.add_argument("--fixratio", type=float, default=0.0)
 parser.add_argument("--tmvb", type=float, default=0.9)
-parser.add_argument("--psucceed_low", type=float, default=0.9999)
+parser.add_argument("--psucceed_low", type=float, default=0.999999999)
 parser.add_argument("--psucceed_up", type=float, default=0.0)
 parser.add_argument("--ratio_low", type=float, default=0.6)
 parser.add_argument("--ratio_up", type=float, default=0.0)
 parser.add_argument("--gap", type=float, default=0.001)
 parser.add_argument("--heuristics", type=float, default=0.05)
 parser.add_argument("--solver", type=str, default='gurobi')
-parser.add_argument("--prob_name", type=str, default='setcover')
+parser.add_argument("--prob_name", type=str, default='cauctions')
 parser.add_argument("--robust", type=int, default=1)
 parser.add_argument("--upCut", type=int, default=0)
 parser.add_argument("--lowCut", type=int, default=1)
 parser.add_argument("--ratio_involve", type=int, default=1)
 parser.add_argument("--data_free", type=int, default=0)
-parser.add_argument("--sample", type=int, default=1)
+parser.add_argument("--sample", type=int, default=0)
 
 args = parser.parse_args()
 solver = args.solver
