@@ -41,8 +41,7 @@ csv_files = {
 }
 
 csv_files = {
-    # 'b_setcover': 'results/setcover/valid_500r_1000c_0.05d/gurobi_0_robust_1_df_0_tmvb_0.9_plow_0.9999_pup_0.0_gap_0.001_heuristics_0.05.csv',
-    'setcover': 'results/setcover/valid_500r_1000c_0.05d/gurobi_1_robust_1_df_0_ratio_0.2_0.0_plow_0.9999_pup_0.0_gap_0.001_heuristics_0.05.csv',
+    'setcover': 'results/setcover/valid_500r_1000c_0.05d/gurobi_0_robust_1_df_0_ratio_0.6_0.0_plow_0.9999_pup_0.0_gap_0.001_heuristics_0.05.csv',
     'cauctions': 'results/cauctions/valid_200_1000/gurobi_0_robust_1_df_0_ratio_0.6_0.0_plow_0.999999999_pup_0.0_gap_0.001_heuristics_0.05.csv',
 }
 
