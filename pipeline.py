@@ -6,11 +6,16 @@ from gurobipy import *
 import coptpy as cp
 from coptpy import COPT
 import numpy as np
+import time
 
 TMVBarray = [0, 0]
 TMVBWarmarray = [0, 0]
 TOriginalArray = [0, 0, 0, 0]
 sol = [None, 0, 10, 0.0]
+
+CPOriginalArray = [0]
+CPWarmArray = [0]
+CPMVBArray = [0,0]
 
 def get_config(prob_name):
     config = get_trained_model_config(prob_name, 0)
@@ -164,34 +169,167 @@ def computeObjLoss(mvbObj, originalObj, ModelSense = -1):
     elif ModelSense == 1:
         return (mvbObj - originalObj) / originalObj * 100
 
+class cbGetBestTime(cp.CallbackBase):
+    
+    def __init__(self, vars, ModelSense = -1):
+        super().__init__()
+        self._vars = vars
+        self._ModelSense = ModelSense
+        self._bestTime = 3600
+        self._bestObj = np.Inf if ModelSense == 1 else -np.Inf
+
+    def callback(self):
+        if self.where() == cp.COPT.CBCONTEXT_MIPSOL:
+            objbst = self.getInfo("BestObj")
+            if self._ModelSense == 1:
+                if objbst < self._bestObj:
+                    self._bestTime = time.time() - CPOriginalArray[0]
+                    self._bestObj = objbst
+            elif self._ModelSense == -1:
+                if objbst > self._bestObj:
+                    self._bestTime = time.time() - CPOriginalArray[0]
+                    self._bestObj = objbst
+
+    def get_best_time(self):
+        return self._bestTime
+
+    def get_best_obj(self):
+        return self._bestObj
+    
+class cbGetWarmBestTime(cp.CallbackBase):
+    
+    def __init__(self, vars, ModelSense = -1):
+        super().__init__()
+        self._vars = vars
+        self._ModelSense = ModelSense
+        self._bestTime = 3600
+        self._bestObj = np.Inf if ModelSense == 1 else -np.Inf
+
+    def callback(self):
+        if self.where() == cp.COPT.CBCONTEXT_MIPSOL:
+            objbst = self.getInfo("BestObj")
+            if self._ModelSense == 1:
+                if objbst < self._bestObj:
+                    self._bestTime = time.time() - CPWarmArray[0]
+                    self._bestObj = objbst
+            elif self._ModelSense == -1:
+                if objbst > self._bestObj:
+                    self._bestTime = time.time() - CPWarmArray[0]
+                    self._bestObj = objbst
+
+    def get_best_time(self):
+        return self._bestTime
+
+    def get_best_obj(self):
+        return self._bestObj
+
+class cbGetMVBBestTime(cp.CallbackBase):
+    
+    def __init__(self, vars, ModelSense, bestObj):
+        super().__init__()
+        self._vars = vars
+        self._ModelSense = ModelSense
+        self._bestTime = 3600
+        self._bestObj = bestObj
+
+    def callback(self):
+        if self.where() == cp.COPT.CBCONTEXT_MIPSOL:
+            objbst = self.getInfo("BestObj")
+            if self._ModelSense == 1:
+                if objbst < self._bestObj and CPWarmArray[1] == 0:
+                    CPWarmArray[1] = 1
+                    self._bestTime = time.time() - CPMVBArray[0]
+                    self._bestObj = objbst
+                    self.interrupt()
+            elif self._ModelSense == -1:
+                if objbst > self._bestObj and CPWarmArray[1] == 0:
+                    CPWarmArray[1] = 1
+                    self._bestTime = time.time() - CPMVBArray[0]
+                    self._bestObj = objbst
+                    self.interrupt()
+
+    def get_best_time(self):
+        return self._bestTime
+
+    def get_best_obj(self):
+        return self._bestObj
+
 def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args):
     if solver == 'copt':
         env = cp.Envr()
         cp_model = env.createModel("lp")
         cp_model.read(instance_path)
+        cp_model.setParam(COPT.Param.TimeLimit, args.maxtime)
+        cp_model.setParam(COPT.Param.Presolve, 2)
+        cp_model.setParam(COPT.Param.HeurLevel, 1) # -1, 0, 1, 2, 3 [0,2,3]?
         initcpmodel = cp_model.clone()
+        ModelSense = initcpmodel.getAttr("ObjSense") # 1: min, -1: max
 
-        print(">>> COPT solve")
-        cp_model.solve()
-        ori_time = cp_model.getAttr("SolvingTime")
+        ori_callback = cbGetBestTime(cp_model.getVars(), ModelSense)
+        cpmodel = initcpmodel.clone()
+        cpmodel.setParam(COPT.Param.RelGap, args.gap)
+        cpmodel.setCallback(ori_callback, cp.COPT.CBCONTEXT_MIPSOL)
+        CPOriginalArray[0] = time.time()
+        cpmodel.solve()
+        ori_time = cpmodel.getAttr("SolvingTime")
+        ori_best_time = ori_callback.get_best_time()
+        originalObjVal = cpmodel.getAttr("BestObj")
 
-        print(">>> COPT warm solve")
-        cp_model.setMipStart(cp_model.getVars(), prediction)
-        cp_model.solve()
-        ori_warm_time = cp_model.getAttr("SolvingTime")
+        if args.data_free:
+            ori_warm_time = 0
+            originalObjVal_warm = -ModelSense * np.Inf
+            ori_warm_best_time = 0
+        else:
+            warm_callback = cbGetWarmBestTime(cp_model.getVars(), ModelSense)
+            cpmodel = initcpmodel.clone()
+            cpmodel.setParam(COPT.Param.RelGap, args.gap)
+            cpmodel.setMipStart(cpmodel.getVars(), prediction)
+            cpmodel.setCallback(warm_callback, cp.COPT.CBCONTEXT_MIPSOL)
+            CPWarmArray[0] = time.time()
+            cpmodel.solve()
+            ori_warm_time = cpmodel.getAttr("SolvingTime")
+            originalObjVal_warm = cpmodel.getAttr("BestObj")
+            ori_warm_best_time = warm_callback.get_best_time()
 
-        print(">>> MVB solve")
         m=cp_model.getAttr("Rows")
         n=cp_model.getAttr("Cols")
         mvbsolver = MVB(m, n)
         mvbsolver.registerModel(initcpmodel, solver=solver)
         mvbsolver.registerVars(list(range(n)))
-        mvb_model = mvbsolver.getMultiVarBranch(Xpred=probs)
+        mvbsolver.setParam(fixratio=args.fixratio, threshold=args.fixthresh,tmvb=[args.fixthresh, args.tmvb],pSuccessLow = [args.psucceed_low],pSuccessUp = [args.psucceed_up])
+        mvb_model = mvbsolver.getMultiVarBranch(Xpred=probs,upCut=args.upCut,lowCut=args.lowCut,ratio_involve=args.ratio_involve,ratio=[args.ratio_low,args.ratio_up])
+        mvb_model.setParam(COPT.Param.RelGap, args.gap/2)
+        bestObjVal = max(originalObjVal, originalObjVal_warm) if ModelSense == 1 else min(originalObjVal, originalObjVal_warm)
+        mvb_callback = cbGetMVBBestTime(cp_model.getVars(), ModelSense, bestObjVal)
+        mvb_model.setCallback(mvb_callback, cp.COPT.CBCONTEXT_MIPSOL)
+        CPMVBArray[0] = time.time()
         mvb_model.solve()
         mvb_time = mvb_model.getAttr("SolvingTime")
+        mvbObjVal = mvb_model.getAttr("BestObj")
+        TimeDominance = mvb_callback.get_best_time()
+        if ModelSense == 1 and mvbObjVal <= bestObjVal:
+            TimeDominance = mvb_time
+        elif ModelSense == -1 and mvbObjVal >= bestObjVal:
+            TimeDominance = mvb_time
+        objLoss = computeObjLoss(mvbObjVal, originalObjVal, ModelSense)
+        objLoss_warm = computeObjLoss(mvbObjVal, originalObjVal_warm, ModelSense) if not args.data_free else np.nan
 
-        print(ori_time, ori_warm_time, mvb_time)
-        return ori_time, ori_warm_time, mvb_time
+        results = {
+            'instance_name': instance_name,
+            'rows': m,
+            'cols': n,
+            'ori_time': ori_time,
+            'ori_warm_time': ori_warm_time,
+            'mvb_time': mvb_time,
+            'ori_best_time': ori_best_time,
+            'ori_warm_best_time': ori_warm_best_time,
+            'TimeDominance': TimeDominance,
+            'objLoss': objLoss,
+            'objLoss_warm': objLoss_warm
+        }
+        print(ori_time, ori_warm_time, TimeDominance)
+        return results
+    
     elif solver == 'gurobi':
         initgrbmodel = read(instance_path)
         initgrbmodel.setParam("TimeLimit", args.maxtime)
@@ -316,8 +454,8 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
                 # model.setParam("Heuristics", 0)
                 # model.setParam("MIPFocus", 3)
                 model.optimize()
-                time = model.getAttr("RunTime")
-                times.append(time)
+                runtime = model.getAttr("RunTime")
+                times.append(runtime)
                 try:
                     obj = model.getAttr("ObjVal")
                 except:
@@ -326,7 +464,7 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
                     best_obj = min(best_obj, obj)
                 elif ModelSense == -1:
                     best_obj = max(best_obj, obj)
-                print(f"{model_names[i]}: {time}, {obj}")
+                print(f"{model_names[i]}: {runtime}, {obj}")
             
             objLoss_all = computeObjLoss(best_obj, originalObjVal, ModelSense)
             objLoss_warm_all = computeObjLoss(best_obj, originalObjVal_warm, ModelSense)
@@ -365,18 +503,18 @@ parser.add_argument("--maxtime", type=float, default=3600.0)
 parser.add_argument("--fixthresh", type=float, default=1.1)
 parser.add_argument("--fixratio", type=float, default=0.0)
 parser.add_argument("--tmvb", type=float, default=0.9)
-parser.add_argument("--psucceed_low", type=float, default=0.999999999)
-parser.add_argument("--psucceed_up", type=float, default=0.0)
+parser.add_argument("--psucceed_low", type=float, default=0.999)
+parser.add_argument("--psucceed_up", type=float, default=0.9)
 parser.add_argument("--ratio_low", type=float, default=0.6)
 parser.add_argument("--ratio_up", type=float, default=0.0)
 parser.add_argument("--gap", type=float, default=0.001)
 parser.add_argument("--heuristics", type=float, default=0.05)
-parser.add_argument("--solver", type=str, default='gurobi')
-parser.add_argument("--prob_name", type=str, default='cauctions')
-parser.add_argument("--robust", type=int, default=1)
-parser.add_argument("--upCut", type=int, default=0)
+parser.add_argument("--solver", type=str, default='copt')
+parser.add_argument("--prob_name", type=str, default='indset')
+parser.add_argument("--robust", type=int, default=0)
+parser.add_argument("--upCut", type=int, default=1)
 parser.add_argument("--lowCut", type=int, default=1)
-parser.add_argument("--ratio_involve", type=int, default=1)
+parser.add_argument("--ratio_involve", type=int, default=0)
 parser.add_argument("--data_free", type=int, default=0)
 parser.add_argument("--sample", type=int, default=0)
 
