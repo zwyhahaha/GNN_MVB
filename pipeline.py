@@ -261,7 +261,8 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
         cp_model.read(instance_path)
         cp_model.setParam(COPT.Param.TimeLimit, args.maxtime)
         cp_model.setParam(COPT.Param.Presolve, 2)
-        cp_model.setParam(COPT.Param.HeurLevel, 1) # -1, 0, 1, 2, 3 [0,2,3]?
+        heu_level = {0.0: 0, 0.05: 2, 1.0: 3}
+        cp_model.setParam(COPT.Param.HeurLevel, heu_level[args.heuristics]) # -1, 0, 1, 2, 3 [0,2,3]?
         initcpmodel = cp_model.clone()
         ModelSense = initcpmodel.getAttr("ObjSense") # 1: min, -1: max
 
@@ -307,12 +308,10 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
         mvb_time = mvb_model.getAttr("SolvingTime")
         mvbObjVal = mvb_model.getAttr("BestObj")
         TimeDominance = mvb_callback.get_best_time()
-        if ModelSense == 1 and mvbObjVal <= bestObjVal:
-            TimeDominance = mvb_time
-        elif ModelSense == -1 and mvbObjVal >= bestObjVal:
-            TimeDominance = mvb_time
         objLoss = computeObjLoss(mvbObjVal, originalObjVal, ModelSense)
         objLoss_warm = computeObjLoss(mvbObjVal, originalObjVal_warm, ModelSense) if not args.data_free else np.nan
+        if TimeDominance == args.maxtime and objLoss <= 1e-06 and objLoss_warm <= 1e-06:
+            TimeDominance = mvb_time
 
         results = {
             'instance_name': instance_name,
