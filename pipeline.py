@@ -15,7 +15,7 @@ sol = [None, 0, 10, 0.0]
 
 CPOriginalArray = [0]
 CPWarmArray = [0]
-CPMVBArray = [0,0]
+CPMVBArray = [0]
 
 def get_config(prob_name):
     config = get_trained_model_config(prob_name, 0)
@@ -225,28 +225,24 @@ class cbGetWarmBestTime(cp.CallbackBase):
 
 class cbGetMVBBestTime(cp.CallbackBase):
     
-    def __init__(self, vars, ModelSense, bestObj):
+    def __init__(self, vars, ModelSense = -1):
         super().__init__()
         self._vars = vars
         self._ModelSense = ModelSense
         self._bestTime = 3600
-        self._bestObj = bestObj
+        self._bestObj = np.Inf if ModelSense == 1 else -np.Inf
 
     def callback(self):
         if self.where() == cp.COPT.CBCONTEXT_MIPSOL:
             objbst = self.getInfo("BestObj")
             if self._ModelSense == 1:
-                if objbst < self._bestObj and CPWarmArray[1] == 0:
-                    CPWarmArray[1] = 1
+                if objbst <= self._bestObj:
                     self._bestTime = time.time() - CPMVBArray[0]
                     self._bestObj = objbst
-                    self.interrupt()
             elif self._ModelSense == -1:
-                if objbst > self._bestObj and CPWarmArray[1] == 0:
-                    CPWarmArray[1] = 1
+                if objbst >= self._bestObj:
                     self._bestTime = time.time() - CPMVBArray[0]
                     self._bestObj = objbst
-                    self.interrupt()
 
     def get_best_time(self):
         return self._bestTime
@@ -261,8 +257,8 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
         cp_model.read(instance_path)
         cp_model.setParam(COPT.Param.TimeLimit, args.maxtime)
         cp_model.setParam(COPT.Param.Presolve, 2)
-        heu_level = {0.0: 0, 0.05: 2, 1.0: 3}
-        cp_model.setParam(COPT.Param.HeurLevel, heu_level[args.heuristics]) # -1, 0, 1, 2, 3 [0,2,3]?
+        heu_level = {0.0: 0, 0.05: -1, 1.0: 3}
+        cp_model.setParam(COPT.Param.HeurLevel, heu_level[args.heuristics])
         initcpmodel = cp_model.clone()
         ModelSense = initcpmodel.getAttr("ObjSense") # 1: min, -1: max
 
@@ -301,7 +297,7 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
         mvb_model = mvbsolver.getMultiVarBranch(Xpred=probs,upCut=args.upCut,lowCut=args.lowCut,ratio_involve=args.ratio_involve,ratio=[args.ratio_low,args.ratio_up])
         mvb_model.setParam(COPT.Param.RelGap, args.gap/2)
         bestObjVal = max(originalObjVal, originalObjVal_warm) if ModelSense == 1 else min(originalObjVal, originalObjVal_warm)
-        mvb_callback = cbGetMVBBestTime(cp_model.getVars(), ModelSense, bestObjVal)
+        mvb_callback = cbGetMVBBestTime(mvb_model.getVars(), ModelSense=ModelSense)
         mvb_model.setCallback(mvb_callback, cp.COPT.CBCONTEXT_MIPSOL)
         CPMVBArray[0] = time.time()
         mvb_model.solve()
@@ -310,8 +306,8 @@ def mvb_experiment(instance_path, instance_name, solver, probs, prediction, args
         TimeDominance = mvb_callback.get_best_time()
         objLoss = computeObjLoss(mvbObjVal, originalObjVal, ModelSense)
         objLoss_warm = computeObjLoss(mvbObjVal, originalObjVal_warm, ModelSense) if not args.data_free else np.nan
-        if TimeDominance == args.maxtime and objLoss <= 1e-06 and objLoss_warm <= 1e-06:
-            TimeDominance = mvb_time
+        if objLoss >= 1e-06 and objLoss_warm >= 1e-06:
+            TimeDominance = args.maxtime
 
         results = {
             'instance_name': instance_name,
