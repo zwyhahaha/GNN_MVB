@@ -1,46 +1,15 @@
 import numpy as np
-from ml_augmented_opt import *
-from utils import get_trained_model_config
-from mvb_experiments.MVB import *
-from mvb_experiments.mkp.result.mkpUtils import *
+from MIPGNN.ml_augmented_opt import *
+from MIPGNN.utils import get_trained_model_config
+from main_utils import *
+from MVB import *
 from gurobipy import *
 from pandas import DataFrame
 import csv
 
-def get_config(prob_name):
-    config = get_trained_model_config(prob_name, 0)
-    return config
-
-def get_instance_names(prob_name, target_dt_name, sample):
-    instances_dir = DATA_DIR.joinpath('graphs', prob_name, target_dt_name, 'processed')
-    # instance_type = INSTANCE_FILE_TYPES[prob_name]
-    instance_type = '.pt'
-    instance_names = [f.stem.replace('_data', '') for f in instances_dir.glob(f'*{instance_type}')]
-    if sample:
-        random.seed(42)
-        instance_names = random.sample(instance_names, 20)
-    return instance_names
-
-def get_instance_path(prob_name, target_dt_name, instance_name):
-    instance_type = INSTANCE_FILE_TYPES[prob_name]
-    instance_path = f'data/instances/{prob_name}/{target_dt_name}/{instance_name}{instance_type}'
-    return instance_path 
-
-def get_data(prob_name, target_dt_name, instance_name):
-    data_path = DATA_DIR.joinpath('graphs', prob_name, target_dt_name, 'processed')
-    data = torch.load(str(data_path.joinpath(instance_name + "_data.pt")),map_location=DEVICE)
-    instance_name = data.instance_name
-    print(">>> Reading:", instance_name)
-    return data
-
-def get_model(config, data):
-    model_dir = PROJECT_DIR.joinpath('trained_models', prob_name, TRAIN_DT_NAMES[prob_name])
-    model_name, model, _ = load_model(config, model_dir, data)
-    return model, model_name
-
-def get_probs(config, model, data):
-    probs, prediction, _, _, y_true, _ = get_prediction(config, model, data)
-    return probs[:,1], prediction, y_true
+def get_probs_(config, model, data):
+    probs, _, _, _, y_true, _ = get_prediction(config, model, data)
+    return probs[:,1], y_true
 
 def get_accuracy(y_true, y_pred, tau):
     """
@@ -98,13 +67,13 @@ if __name__ == "__main__":
     y_trues = []
     y_preds = []
     for target_dt_name in target_dt_names_lst:
-        instance_names = get_instance_names(prob_name, target_dt_name, sample=0)
+        instance_names = get_instance_names(prob_name, target_dt_name)
         for instance_name in instance_names:
             try: 
                 data = get_data(prob_name, target_dt_name, instance_name)
-                model, model_name = get_model(config, data)
+                model, model_name = get_model(prob_name, config, data)
                 instance_path = get_instance_path(prob_name, target_dt_name, instance_name)
-                y_pred, _, y_true = get_probs(config, model, data)
+                y_pred, y_true = get_probs_(config, model, data)
                 y_trues.append(y_true)
                 y_preds.append(y_pred)
             except Exception as e:
@@ -114,7 +83,7 @@ if __name__ == "__main__":
     y_trues = np.array(y_trues)
     y_preds = np.array(y_preds)
     
-    with open(f'results/tilde_tau_{prob_name}.csv', mode='a', newline='') as file:
+    with open(f'results/tau_{prob_name}.csv', mode='a', newline='') as file:
         file.truncate(0)
         writer = csv.writer(file)
         writer.writerow(["tau", "acc_up_mean", "acc_low_mean", "acc_up_var", "acc_low_var", "len_up_id", "len_low_id"])

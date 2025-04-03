@@ -1,16 +1,27 @@
 #!/bin/bash
-# python data_generation.py --prob_name indset
-# python data_generation.py --prob_name setcover
-# python data_generation.py --prob_name cauctions --dt_types val
-# python data_generation.py --prob_name fcmnf --dt_types target
-# python data_generation.py --prob_name gisp --dt_types target
 
-# gnn
-# caffeinate -i nohup python pipeline.py --prob_name indset --sample 0 --data_free 0 --robust 0 --tmvb 0.999 --psucceed_low 0.99 --psucceed_up 0.99 --gap 0.01 --heuristics 1.0 --robust 0 --upCut 1 --lowCut 1 --ratio_involve 0 > output.log 2>&1 &
-# caffeinate -i nohup python pipeline.py --prob_name setcover --sample 0 --data_free 0 --robust 0 --tmvb 0.999 --psucceed_low 0.99 --psucceed_up 0.99 --gap 0.01 --heuristics 1.0 --robust 0 --upCut 1 --lowCut 1 --ratio_involve 0 > output.log 2>&1 &
+for heuristics in 0 0.05 1.0; do
+    # gnn
+    python gnn_experiments.py --prob_name indset --solver gurobi --dt_name transfer_2000_4 --data_free 0 --robust 0 --tmvb 0.9 --psucceed_low 0.99 --psucceed_up 0.99 --heuristics $heuristics
+    python gnn_experiments.py --prob_name setcover --solver gurobi --data_free 0 --robust 0 --tmvb 0.9 --psucceed_low 0.999 --psucceed_up 0.99999 --heuristics $heuristics
+    python gnn_experiments.py --prob_name cauctions --solver gurobi --data_free 0 --robust 0 --ratio_involve 1 --ratio_up 0.0 --ratio_low 0.05 --psucceed_low 0.999 --heuristics $heuristics
 
-# braching rule
-# caffeinate -i nohup python pipeline.py --prob_name cauctions --sample 0 --data_free 0 --robust 1 --ratio_involve 1 --ratio_low 0.6 --ratio_up 0.0 --psucceed_low 0.999999999 --psucceed_up 0.0 --gap 0.001 --upCut 0 --lowCut 1 --heuristics 0.05 > output.log 2>&1 &
+    # data free
+    python gnn_experiments.py --prob_name cauctions --solver gurobi --data_free 1 --robust 0 --tmvb 0.8 --psucceed_low 0.9 --psucceed_up 0.999 --heuristics $heuristics
+    python gnn_experiments.py --prob_name setcover --solver gurobi --data_free 1 --robust 0 --tmvb 0.9999 --psucceed_low 0.9999 --psucceed_up 0.999 --heuristics $heuristics
 
-caffeinate -i nohup python pipeline.py --prob_name setcover --sample 0 --data_free 0 --robust 1 --fixratio 0.2 --ratio_involve 1 --ratio_low 0.4 --ratio_up 0.0 --psucceed_low 0.9 --gap 0.001 --upCut 0 --lowCut 1 --heuristics 0.05 > output.log 2>&1 &
-wait $!
+    # branching rule
+    python gnn_experiments.py --prob_name cauctions --solver gurobi --sample 0 --data_free 0 --robust 1 --ratio_involve 1 --ratio_low 0.6 --ratio_up 0.0 --psucceed_low 0.999999999 --psucceed_up 0.0 --gap 0.001 --upCut 0 --lowCut 1 --heuristics $heuristics
+    python gnn_experiments.py --prob_name setcover --solver gurobi --sample 0 --data_free 0 --robust 1 --fixratio 0.2 --ratio_involve 1 --ratio_low 0.4 --ratio_up 0.0 --psucceed_low 0.9 --gap 0.001 --upCut 0 --lowCut 1 --heuristics $heuristics
+done
+
+for heuristics in 0 0.05 1.0; do
+    # gnn
+    python gnn_experiments.py --prob_name indset --solver copt --dt_name transfer_2000_4 --data_free 0 --robust 0 --tmvb 0.9 --psucceed_low 0.99 --psucceed_up 0.99 --heuristics $heuristics
+    python gnn_experiments.py --prob_name setcover --solver copt --data_free 0 --robust 0 --tmvb 0.9 --psucceed_low 0.999 --psucceed_up 0.99999 --heuristics $heuristics
+    python gnn_experiments.py --prob_name cauctions --solver copt --data_free 0 --robust 0 --ratio_involve 1 --ratio_up 0.0 --ratio_low 0.05 --psucceed_low 0.999 --heuristics $heuristics
+
+    # data free
+    python gnn_experiments.py --prob_name cauctions --solver copt --data_free 1 --robust 0 --tmvb 0.8 --psucceed_low 0.9 --psucceed_up 0.999 --heuristics $heuristics
+    python gnn_experiments.py --prob_name setcover --solver copt --data_free 1 --robust 0 --tmvb 0.9999 --psucceed_low 0.9999 --psucceed_up 0.999 --heuristics $heuristics
+done
