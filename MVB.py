@@ -1,3 +1,8 @@
+"""
+Implementation of PMVB framework.
+© Wenzhi Gao, gwz@stanford.edu
+"""
+
 import numpy as np
 from gurobipy import *
 import coptpy as cp

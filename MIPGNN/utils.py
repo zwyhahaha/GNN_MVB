@@ -16,8 +16,6 @@ import cplex
 from docplex.mp.model_reader import ModelReader
 from docplex.mp.conflict_refiner import ConflictRefiner
 
-import sys
-sys.path.append("../..")
 from models.gnn import SimpleMIPGNN, MIPGNN
 from graph_preprocessing import AbcNorm, GraphDataset
 from loss import LossHandler
