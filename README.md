@@ -15,7 +15,7 @@ conda activate gnn_mvb
 ### Prepare the data
 As shown by [gnn4co repo](https://github.com/furkancanturk/gnn4co), download the files [here](https://drive.google.com/drive/folders/1zunn3_KcgXmiuvN3-y6Jihcr6QDKK1JC) and save them in the `MIPGNN/data` folder.
 
-Then further generate the graph data by
+Next, generate the graph data using the following commands:
 
 ```bash
 python MIPGNN/data_generation.py --prob_name indset --dt_types val
@@ -28,9 +28,9 @@ python MIPGNN/data_generation.py --prob_name cauctions --dt_types val
 ```bash
 python gnn_experiments.py
 ```
-If runs successfully, you can see the results in the `results/` folder.
+If the script runs successfully, the results will be saved in the `results/` folder.
 
-The scripts for reproducing all the experiments is in `run.sh`.
+The script for reproducing all the experiments is `run.sh`.
 
 ## Contributors
 - Wenzhi Gao, gwz@stanford.edu
