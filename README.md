@@ -58,11 +58,12 @@ python run_logistic_scuc.py
 If you use this repository in your research, please cite the following papers:
 
 ```
-@article{chen2023pre,
-  title={Pre-trained mixed integer optimization through multi-variable cardinality branching},
-  author={Chen, Yanguang and Gao, Wenzhi and Ge, Dongdong and Ye, Yinyu},
+@article{chen2025datadriven,
+  title={Data-driven Mixed Integer Optimization through Probabilistic Multi-variable Branching},,
+  author={Yanguang Chen and Wenzhi Gao and Wanyu Zhang and Dongdong Ge and Huikang Liu and Yinyu Ye},
   journal={arXiv preprint arXiv:2305.12352},
-  year={2023}
+  year={2025},
+  url={https://arxiv.org/abs/2305.12352}
 }
 ```
 
