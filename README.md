@@ -15,6 +15,8 @@ conda activate gnn_mvb
 2. Ensure that numpy version 1.x is installed to prevent potential runtime issues.
 
 ### Prepare the data
+
+1. Data for experiments based on GNN models:
 As shown by [gnn4co repo](https://github.com/furkancanturk/gnn4co), download the files [here](https://drive.google.com/drive/folders/1zunn3_KcgXmiuvN3-y6Jihcr6QDKK1JC) and save them in the `MIPGNN/data` folder.
 
 Next, generate the graph data using the following commands:
@@ -26,8 +28,12 @@ python MIPGNN/data_generation.py --prob_name setcover --dt_types val
 python MIPGNN/data_generation.py --prob_name cauctions --dt_types val
 ```
 
+2. Data for experiments based on GNN models:
+Download data [here](https://drive.google.com/drive/folders/1JuCc1TpbGkERCjfAlzBltGBzFyrYYDku?usp=sharing) and save them in the `logistics_experiments/data` folder.
+
 ### Run the scripts
-1. For experiments based on GNN models:
+1. For experiments based on logistic regression models:
+
 ```bash
 python gnn_experiments.py
 ```
@@ -36,7 +42,7 @@ If the script runs successfully, the results will be saved in the `results/` fol
 
 The script for reproducing all the experiments is `run.sh`.
 
-2. For experiments based on logistic regression models:
+1. For experiments based on logistic regression models:
 ```bash
 cd logistics_experiments
 python run_logistic_scuc.py

@@ -9,3 +9,4 @@ run.sh
 *.log
 assets/
 MIPGNN/data/
+ieee_data/

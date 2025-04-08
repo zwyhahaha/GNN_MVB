@@ -94,7 +94,7 @@ if __name__ == "__main__":
 
     for i in range(len(prob_range)):
 
-        mps_fname = "ieee_data/mps/{0}.mps".format(prob_range[i])
+        mps_fname = "data/mps/{0}.mps".format(prob_range[i])
         base_model = read(mps_fname)
         base_rhs = getFeatureMKPGurobi(base_model)
         varIdx = getVarIdx(base_model)        
@@ -107,8 +107,8 @@ if __name__ == "__main__":
                 f.write("**************************************************************** \n")
 
                 try:
-                    X = loadmat("ieee_data/mat/train_{0}.mat".format(prob_range[i]))['data']['X'][0][0]
-                    y = loadmat("ieee_data/mat/train_{0}.mat".format(prob_range[i]))['data']['y'][0][0]
+                    X = loadmat("data/mat/train_{0}.mat".format(prob_range[i]))['data']['X'][0][0]
+                    y = loadmat("data/mat/train_{0}.mat".format(prob_range[i]))['data']['y'][0][0]
                 except:
                     with open("results/log_all.txt", "a") as f:
                         f.write("------------------------------------------------ \n")
