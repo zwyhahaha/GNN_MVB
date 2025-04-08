@@ -10,7 +10,9 @@ conda deactivate
 conda env create -f environment.yaml
 conda activate gnn_mvb
 ```
-**Note:** use numpy=1.x to avoid potential runtime issues.
+**Note:** 
+1. You must obtain valid licenses for both COPT and Gurobi to successfully execute this code.
+2. Ensure that numpy version 1.x is installed to prevent potential runtime issues.
 
 ### Prepare the data
 As shown by [gnn4co repo](https://github.com/furkancanturk/gnn4co), download the files [here](https://drive.google.com/drive/folders/1zunn3_KcgXmiuvN3-y6Jihcr6QDKK1JC) and save them in the `MIPGNN/data` folder.
@@ -25,15 +27,24 @@ python MIPGNN/data_generation.py --prob_name cauctions --dt_types val
 ```
 
 ### Run the scripts
+1. For experiments based on GNN models:
 ```bash
 python gnn_experiments.py
 ```
+
 If the script runs successfully, the results will be saved in the `results/` folder.
 
 The script for reproducing all the experiments is `run.sh`.
 
+2. For experiments based on logistic regression models:
+```bash
+cd logistics_experiments
+python run_logistic_scuc.py
+```
+
 ## Contributors
 - Wenzhi Gao, gwz@stanford.edu
+- Yanguang Chen, 2017212301@live.sufe.edu.cn
 - Wanyu Zhang, wanyuzhang@stu.sufe.edu.cn
 
 ## Citation
