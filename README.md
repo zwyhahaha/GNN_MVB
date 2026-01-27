@@ -47,36 +47,3 @@ The script for reproducing all the experiments is `run.sh`.
 cd logistics_experiments
 python run_logistic_scuc.py
 ```
-
-## Contributors
-- Wenzhi Gao, gwz@stanford.edu
-- Yanguang Chen, 2017212301@live.sufe.edu.cn
-- Wanyu Zhang, wanyuzhang@stu.sufe.edu.cn
-
-## Citation
-
-If you use this repository in your research, please cite the following papers:
-
-```
-@article{chen2025datadriven,
-  title={Data-driven Mixed Integer Optimization through Probabilistic Multi-variable Branching},,
-  author={Yanguang Chen and Wenzhi Gao and Wanyu Zhang and Dongdong Ge and Huikang Liu and Yinyu Ye},
-  journal={arXiv preprint arXiv:2305.12352},
-  year={2025},
-  url={https://arxiv.org/abs/2305.12352}
-}
-```
-
-The GNN model used in this repository is from [gnn4co](https://github.com/furkancanturk/gnn4co):
-```
-@article{canturk2024,
-    author = {Cantürk, Furkan and Varol, Taha and Aydoğan, Reyhan, and Özener, Okan Örsan},
-    year = {2024},
-    month = {6},
-    pages = {327-376},
-    journal = {Journal of Artificial Intelligence Research},
-    volume = {80},
-    title = {Scalable Primal Heuristics Using Graph Neural Networks for Combinatorial Optimization},
-    doi = {10.1613/jair.1.14972}
-}
-```
